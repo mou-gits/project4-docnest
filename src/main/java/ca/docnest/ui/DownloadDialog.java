@@ -5,6 +5,8 @@ import ca.docnest.model.User;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
+import java.nio.file.Files;
 
 public class DownloadDialog extends JDialog {
 
@@ -12,7 +14,6 @@ public class DownloadDialog extends JDialog {
     private final User user;
     private final String filename;
 
-    private JLabel lblFileName;
     private JProgressBar progressBar;
     private JLabel lblError;
     private JButton btnCancel;
@@ -37,7 +38,7 @@ public class DownloadDialog extends JDialog {
         JPanel form = new JPanel(new GridLayout(2, 2, 5, 5));
 
         form.add(new JLabel("File Name:"));
-        lblFileName = new JLabel(filename);
+        JLabel lblFileName = new JLabel(filename);
         form.add(lblFileName);
 
         form.add(new JLabel("Status:"));
@@ -85,23 +86,50 @@ public class DownloadDialog extends JDialog {
             @Override
             protected void done() {
                 try {
-                    downloadSuccess = get();
-                    if (downloadSuccess) {
-                        dispose();
-                    } else {
+                    // Whether backend.downloadFile() succeeded
+                    boolean backendSuccess = get();
+
+                    if (!backendSuccess) {
                         lblError.setText("Download failed.");
                         btnCancel.setEnabled(true);
+                        return;
                     }
+
+                    // Retrieve file bytes from backend
+                    byte[] data = backend.downloadFile(user.getUserId(), filename);
+                    if (data == null) {
+                        lblError.setText("Download failed.");
+                        btnCancel.setEnabled(true);
+                        return;
+                    }
+
+                    // Ask user where to save the file
+                    JFileChooser chooser = new JFileChooser();
+                    chooser.setSelectedFile(new File(filename)); // default name
+
+                    int result = chooser.showSaveDialog(DownloadDialog.this);
+
+                    if (result == JFileChooser.APPROVE_OPTION) {
+                        File saveTo = chooser.getSelectedFile();
+                        Files.write(saveTo.toPath(), data);
+                        downloadSuccess = true;
+                        dispose();
+                    } else {
+                        // User cancelled the save dialog
+                        lblError.setText("Download cancelled.");
+                        btnCancel.setEnabled(true);
+                    }
+
                 } catch (Exception e) {
                     lblError.setText("Unexpected error.");
                     btnCancel.setEnabled(true);
                 }
             }
+
         };
 
         worker.execute();
     }
-
 
     public boolean wasDownloadSuccessful() {
         return downloadSuccess;

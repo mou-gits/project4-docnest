@@ -109,21 +109,17 @@ public class BackendFake {
 
     private File resolveStorageRoot() {
         try {
-            URL url = getClass().getClassLoader().getResource("storage");
-            if (url != null) {
-                File folder = new File(url.toURI());
-                if (!folder.exists()) {
-                    folder.mkdirs();
-                }
-                return folder;
-            } else {
-                // Fallback: create a storage folder in working directory
-                File folder = new File("storage");
-                if (!folder.exists()) {
-                    folder.mkdirs();
-                }
-                return folder;
+            // Cross-platform user home directory
+            String home = System.getProperty("user.home");
+
+            // Create a dedicated folder for DocNest
+            File folder = new File(home, "DocNestStorage");
+
+            if (!folder.exists()) {
+                folder.mkdirs();
             }
+
+            return folder;
         } catch (Exception e) {
             throw new RuntimeException("Failed to resolve storage folder", e);
         }
@@ -137,6 +133,4 @@ public class BackendFake {
         }
         return userFolder;
     }
-
-    // --- Methods to implement below ---
 }

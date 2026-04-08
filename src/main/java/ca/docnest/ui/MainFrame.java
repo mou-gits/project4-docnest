@@ -18,7 +18,6 @@ public class MainFrame extends JFrame {
     private JLabel lblLoggedInAs;
     private JButton btnLogin;
 
-
     private JTable fileTable;
     private DefaultTableModel tableModel;
 
@@ -121,6 +120,7 @@ public class MainFrame extends JFrame {
         btnUpload.setEnabled(false);
         btnDownload.setEnabled(false);
         btnInfo.setEnabled(false);
+        btnDelete.setEnabled(false);
         btnRefresh.setEnabled(false);
         btnLogout.setEnabled(false);
     }
@@ -137,6 +137,7 @@ public class MainFrame extends JFrame {
         // Download/Info depend on selection
         btnDownload.setEnabled(false);
         btnInfo.setEnabled(false);
+        btnDelete.setEnabled(false);
 
         loadFileList();
     }
@@ -176,7 +177,6 @@ public class MainFrame extends JFrame {
             loadFileList();
         }
     }
-
 
     private void openDownloadDialog() {
         int row = fileTable.getSelectedRow();
