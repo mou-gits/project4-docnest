@@ -4,6 +4,7 @@
 .idea/
 *.iml
 out/
+jre/
 
 # User-specific IntelliJ files (never commit)
 .idea/workspace.xml
