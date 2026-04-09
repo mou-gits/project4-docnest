@@ -1,4 +1,4 @@
-package docnest.util;
+package ca.docnest.util;
 
 public class UIUtils {
 }

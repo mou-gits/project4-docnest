@@ -1,0 +1,18 @@
+<project>
+    <parent>
+        <groupId>ca.docnest</groupId>
+        <artifactId>docnest</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>docnest-server</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>ca.docnest</groupId>
+            <artifactId>docnest-shared</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+</project>

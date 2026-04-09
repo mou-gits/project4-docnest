@@ -5,7 +5,6 @@ import ca.docnest.model.User;
 import ca.docnest.util.JsonUtils;
 
 import java.io.File;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
