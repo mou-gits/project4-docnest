@@ -1,20 +1,30 @@
 package ca.docnest.ui;
 
+import ca.docnest.client.network.ClientNetwork;
 import javafx.application.Application;
-import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class MainApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        MainView view = new MainView();
+        LoginDialogFX loginDialog = new LoginDialogFX(primaryStage);
+        ClientNetwork client = loginDialog.showAndWait();
 
-        Scene scene = new Scene(view.getRoot(), 800, 600);
+        if (client == null) {
+            primaryStage.close();
+            return;
+        }
 
-        primaryStage.setTitle("DocNest Client (JavaFX)");
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        primaryStage.setOnCloseRequest(event -> {
+            try {
+                client.logout();
+            } catch (Exception ignored) {
+                client.close();
+            }
+        });
+
+        new MainView(primaryStage, client).show();
     }
 
     public static void main(String[] args) {

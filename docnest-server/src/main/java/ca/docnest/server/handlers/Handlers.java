@@ -1,138 +1,98 @@
 package ca.docnest.server.handlers;
 
+import ca.docnest.server.AuthService;
 import ca.docnest.server.ClientSession;
+import ca.docnest.server.FileStorage;
 import ca.docnest.server.SessionState;
-import ca.docnest.shared.protocol.*;
+import ca.docnest.shared.protocol.DataPacket;
+import ca.docnest.shared.protocol.PacketBuilder;
+import ca.docnest.shared.protocol.PacketParser;
+import ca.docnest.shared.protocol.PacketTransport;
+import ca.docnest.shared.protocol.PacketType;
 
 public class Handlers {
 
     public static void handleLogin(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         var json = PacketParser.parseJson(packet);
         String username = json.get("username").asText();
         String password = json.get("password").asText();
 
-        // TODO: Replace with real authentication
-        boolean ok = username.equals("test") && password.equals("123");
-
+        boolean ok = AuthService.authenticate(username, password);
         if (!ok) {
-            DataPacket err = PacketBuilder.buildErrorPacket(401, "Invalid credentials", username);
-            transport.send(err);
+            transport.send(PacketBuilder.buildErrorPacket(401, "Invalid credentials", username));
+            session.setState(SessionState.CLOSING);
+            session.close();
             return;
         }
 
-        // Success → send LOGIN_RESPONSE
-        DataPacket response = PacketBuilder.buildLoginResponsePacket(username);
-        transport.send(response);
-
+        session.setUserId(username);
+        transport.send(PacketBuilder.buildLoginResponsePacket(true, "Login successful"));
         session.setState(SessionState.READY);
     }
 
     public static void handleListFiles(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
-        // TODO: Replace with real storage
-        var files = FileStorage.listFilesForUser(session.getUserId());
-
-        DataPacket response = PacketBuilder.buildListFilesResponse(files);
-        transport.send(response);
+        transport.send(PacketBuilder.buildListFilesResponsePacket(FileStorage.listFilesForUser(session.getUserId())));
     }
 
     public static void handleUploadInit(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         var json = PacketParser.parseJson(packet);
         String filename = json.get("filename").asText();
         long size = json.get("size").asLong();
 
-        // Prepare storage
         FileStorage.beginUpload(session.getUserId(), filename, size);
-
-        // Acknowledge
-        DataPacket ack = PacketBuilder.buildUploadAckPacket(filename);
-        transport.send(ack);
-
+        transport.send(PacketBuilder.buildUploadReadyPacket(filename));
         session.setState(SessionState.TRANSFERRING);
     }
 
-
     public static void handleUploadChunk(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         byte[] chunk = PacketParser.parseChunk(packet);
-
         FileStorage.appendChunk(session.getUserId(), chunk);
-
-        // Optional: send CHUNK_ACK
-        DataPacket ack = PacketBuilder.buildChunkAckPacket(chunk.length);
-        transport.send(ack);
     }
 
     public static void handleUploadComplete(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         FileStorage.finishUpload(session.getUserId());
-
-        DataPacket done = PacketBuilder.buildUploadCompleteResponse();
-        transport.send(done);
-
+        transport.send(PacketBuilder.buildUploadResultPacket(true, "Upload complete"));
         session.setState(SessionState.READY);
     }
 
     public static void handleDownloadInit(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         var json = PacketParser.parseJson(packet);
         String filename = json.get("filename").asText();
 
         byte[] file = FileStorage.readFile(session.getUserId(), filename);
+        session.setState(SessionState.TRANSFERRING);
+        transport.send(PacketBuilder.buildDownloadReadyPacket(filename, file.length));
 
-        // Send metadata
-        DataPacket meta = PacketBuilder.buildDownloadMetaPacket(filename, file.length);
-        transport.send(meta);
-
-        // Send chunks
         for (byte[] chunk : PacketBuilder.splitIntoChunks(file)) {
-            DataPacket chunkPacket = PacketBuilder.buildChunkPacket(PacketType.DOWNLOAD_CHUNK, chunk);
-            transport.send(chunkPacket);
+            transport.send(PacketBuilder.buildChunkPacket(PacketType.DOWNLOAD_CHUNK, chunk));
         }
 
-        // Send completion
-        DataPacket done = PacketBuilder.buildDownloadCompletePacket();
-        transport.send(done);
-
+        transport.send(PacketBuilder.buildDownloadCompletePacket(filename));
         session.setState(SessionState.READY);
     }
 
-    public static void handleDownloadChunk(DataPacket packet,
-                                           ClientSession session,
-                                           PacketTransport transport) throws Exception {
-        // Client should never send this
-        DataPacket err = PacketBuilder.buildErrorPacket(
+    public static void handleDownloadChunk(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
+        transport.send(PacketBuilder.buildErrorPacket(
                 400,
                 "Client must not send DOWNLOAD_CHUNK",
                 "Server streams chunks automatically"
-        );
-        transport.send(err);
+        ));
     }
 
     public static void handleDeleteFile(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
         var json = PacketParser.parseJson(packet);
         String filename = json.get("filename").asText();
 
         boolean ok = FileStorage.deleteFile(session.getUserId(), filename);
-
         if (!ok) {
-            DataPacket err = PacketBuilder.buildErrorPacket(404, "File not found", filename);
-            transport.send(err);
+            transport.send(PacketBuilder.buildErrorPacket(404, "File not found", filename));
             return;
         }
 
-        DataPacket response = PacketBuilder.buildDeleteSuccessPacket(filename);
-        transport.send(response);
+        transport.send(PacketBuilder.buildDeleteResponsePacket(true, "Deleted " + filename));
     }
 
-    public static void handleLogout(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-
-        DataPacket response = PacketBuilder.buildLogoutResponsePacket();
-        transport.send(response);
-
+    public static void handleLogout(DataPacket packet, ClientSession session, PacketTransport transport) {
         session.setState(SessionState.CLOSING);
         session.close();
     }

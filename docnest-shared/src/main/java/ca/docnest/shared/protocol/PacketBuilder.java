@@ -126,6 +126,10 @@ public class PacketBuilder {
         return buildJsonPacket(PacketType.LIST_FILES_RESPONSE, fileListJson);
     }
 
+    public static DataPacket buildListFilesResponsePacket(List<String> filenames) {
+        return buildJsonPacket(PacketType.LIST_FILES_RESPONSE, Map.of("files", filenames));
+    }
+
     // ---------------------------------------------------------
     // UPLOAD_INIT / UPLOAD_READY
     // ---------------------------------------------------------
@@ -160,6 +164,10 @@ public class PacketBuilder {
         return buildJsonPacket(PacketType.UPLOAD_COMPLETE, json);
     }
 
+    public static DataPacket buildUploadCompletePacket() {
+        return buildJsonPacket(PacketType.UPLOAD_COMPLETE, Map.of());
+    }
+
     public static DataPacket buildUploadResultPacket(boolean success, String message) {
         var json = Map.of(
                 "success", success,
@@ -174,7 +182,7 @@ public class PacketBuilder {
 
     public static DataPacket buildDownloadInitPacket(String fileId) {
         var json = Map.of(
-                "fileId", fileId
+                "filename", fileId
         );
         return buildJsonPacket(PacketType.DOWNLOAD_INIT, json);
     }
@@ -193,9 +201,13 @@ public class PacketBuilder {
 
     public static DataPacket buildDownloadCompletePacket(String fileId) {
         var json = Map.of(
-                "fileId", fileId
+                "filename", fileId
         );
         return buildJsonPacket(PacketType.DOWNLOAD_COMPLETE, json);
+    }
+
+    public static DataPacket buildDownloadCompletePacket() {
+        return buildJsonPacket(PacketType.DOWNLOAD_COMPLETE, Map.of());
     }
 
     // ---------------------------------------------------------
@@ -204,7 +216,7 @@ public class PacketBuilder {
 
     public static DataPacket buildDeleteFilePacket(String fileId) {
         var json = Map.of(
-                "fileId", fileId
+                "filename", fileId
         );
         return buildJsonPacket(PacketType.DELETE_FILE, json);
     }

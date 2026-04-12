@@ -1,6 +1,11 @@
 package ca.docnest.client.network;
 
-import ca.docnest.shared.protocol.*;
+import ca.docnest.shared.protocol.DataPacket;
+import ca.docnest.shared.protocol.PacketBuilder;
+import ca.docnest.shared.protocol.PacketParser;
+import ca.docnest.shared.protocol.PacketTransport;
+import ca.docnest.shared.protocol.PacketType;
+
 import java.io.IOException;
 import java.net.Socket;
 
@@ -22,108 +27,105 @@ public class ClientNetwork {
     }
 
     public void close() {
-        try { socket.close(); } catch (Exception ignored) {}
+        try {
+            if (socket != null) {
+                socket.close();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
-    // -------------------------
-    // LOGIN
-    // -------------------------
     public boolean login(String username, String password) throws Exception {
-        DataPacket loginPacket = PacketBuilder.buildLoginPacket(username, password);
-        transport.send(loginPacket);
-
+        transport.send(PacketBuilder.buildLoginPacket(username, password));
         DataPacket response = transport.receive();
 
         if (response.getCommand() == PacketType.LOGIN_RESPONSE) {
-            return true;
+            var json = PacketParser.parseJson(response);
+            return json.get("success").asBoolean(false);
         }
 
         if (response.getCommand() == PacketType.ERROR) {
             var err = PacketParser.parseError(response);
-            throw new IOException("Login failed: " + err.message());
+            throw new IOException("Login failed: " + err.getMessage());
         }
 
         throw new IOException("Unexpected response during login");
     }
 
-    // -------------------------
-    // LIST FILES
-    // -------------------------
     public String[] listFiles() throws Exception {
-        DataPacket req = PacketBuilder.buildListFilesPacket();
-        transport.send(req);
-
+        transport.send(PacketBuilder.buildListFilesPacket());
         DataPacket resp = transport.receive();
 
         if (resp.getCommand() == PacketType.LIST_FILES_RESPONSE) {
             return PacketParser.parseListFilesResponse(resp);
         }
 
+        if (resp.getCommand() == PacketType.ERROR) {
+            var err = PacketParser.parseError(resp);
+            throw new IOException("List files failed: " + err.getMessage());
+        }
+
         throw new IOException("Unexpected response to LIST_FILES");
     }
 
-    // -------------------------
-    // UPLOAD
-    // -------------------------
     public void upload(String filename, byte[] data) throws Exception {
-        // 1. INIT
-        DataPacket init = PacketBuilder.buildUploadInitPacket(filename, data.length);
-        transport.send(init);
+        transport.send(PacketBuilder.buildUploadInitPacket(filename, data.length));
 
         DataPacket ack = transport.receive();
-        if (ack.getCommand() != PacketType.UPLOAD_ACK) {
-            throw new IOException("Upload init failed");
+        if (ack.getCommand() == PacketType.ERROR) {
+            var err = PacketParser.parseError(ack);
+            throw new IOException("Upload init failed: " + err.getMessage());
+        }
+        if (ack.getCommand() != PacketType.UPLOAD_READY) {
+            throw new IOException("Unexpected response to UPLOAD_INIT");
         }
 
-        // 2. CHUNKS
         for (byte[] chunk : PacketBuilder.splitIntoChunks(data)) {
-            DataPacket chunkPacket = PacketBuilder.buildChunkPacket(PacketType.UPLOAD_CHUNK, chunk);
-            transport.send(chunkPacket);
-
-            DataPacket chunkAck = transport.receive();
-            if (chunkAck.getCommand() != PacketType.CHUNK_ACK) {
-                throw new IOException("Upload chunk failed");
-            }
+            transport.send(PacketBuilder.buildChunkPacket(PacketType.UPLOAD_CHUNK, chunk));
         }
 
-        // 3. COMPLETE
-        DataPacket complete = PacketBuilder.buildUploadCompletePacket();
-        transport.send(complete);
-
+        transport.send(PacketBuilder.buildUploadCompletePacket());
         DataPacket done = transport.receive();
-        if (done.getCommand() != PacketType.UPLOAD_COMPLETE_RESPONSE) {
-            throw new IOException("Upload did not complete");
+
+        if (done.getCommand() == PacketType.ERROR) {
+            var err = PacketParser.parseError(done);
+            throw new IOException("Upload failed: " + err.getMessage());
+        }
+        if (done.getCommand() != PacketType.UPLOAD_RESULT) {
+            throw new IOException("Unexpected response to UPLOAD_COMPLETE");
         }
     }
 
-    // -------------------------
-    // DOWNLOAD
-    // -------------------------
     public byte[] download(String filename) throws Exception {
-        DataPacket init = PacketBuilder.buildDownloadInitPacket(filename);
-        transport.send(init);
+        transport.send(PacketBuilder.buildDownloadInitPacket(filename));
 
-        // META
         DataPacket meta = transport.receive();
+        if (meta.getCommand() == PacketType.ERROR) {
+            var err = PacketParser.parseError(meta);
+            throw new IOException("Download failed: " + err.getMessage());
+        }
+        if (meta.getCommand() != PacketType.DOWNLOAD_READY) {
+            throw new IOException("Unexpected response to DOWNLOAD_INIT");
+        }
+
         var metaJson = PacketParser.parseJson(meta);
         int size = metaJson.get("size").asInt();
 
         byte[] buffer = new byte[size];
         int offset = 0;
 
-        // CHUNKS
         while (true) {
-            DataPacket p = transport.receive();
+            DataPacket packet = transport.receive();
 
-            if (p.getCommand() == PacketType.DOWNLOAD_COMPLETE) {
+            if (packet.getCommand() == PacketType.DOWNLOAD_COMPLETE) {
                 break;
             }
 
-            if (p.getCommand() != PacketType.DOWNLOAD_CHUNK) {
+            if (packet.getCommand() != PacketType.DOWNLOAD_CHUNK) {
                 throw new IOException("Unexpected packet during download");
             }
 
-            byte[] chunk = PacketParser.parseChunk(p);
+            byte[] chunk = PacketParser.parseChunk(packet);
             System.arraycopy(chunk, 0, buffer, offset, chunk.length);
             offset += chunk.length;
         }
@@ -131,37 +133,22 @@ public class ClientNetwork {
         return buffer;
     }
 
-    // -------------------------
-    // DELETE
-    // -------------------------
     public void delete(String filename) throws Exception {
-        DataPacket req = PacketBuilder.buildDeleteFilePacket(filename);
-        transport.send(req);
-
+        transport.send(PacketBuilder.buildDeleteFilePacket(filename));
         DataPacket resp = transport.receive();
 
         if (resp.getCommand() == PacketType.ERROR) {
             var err = PacketParser.parseError(resp);
-            throw new IOException("Delete failed: " + err.message());
+            throw new IOException("Delete failed: " + err.getMessage());
         }
 
-        if (resp.getCommand() != PacketType.DELETE_SUCCESS) {
+        if (resp.getCommand() != PacketType.DELETE_RESPONSE) {
             throw new IOException("Unexpected response to DELETE_FILE");
         }
     }
 
-    // -------------------------
-    // LOGOUT
-    // -------------------------
     public void logout() throws Exception {
-        DataPacket req = PacketBuilder.buildLogoutPacket();
-        transport.send(req);
-
-        DataPacket resp = transport.receive();
-        if (resp.getCommand() != PacketType.LOGOUT_RESPONSE) {
-            throw new IOException("Unexpected response to LOGOUT");
-        }
-
+        transport.send(PacketBuilder.buildLogoutPacket());
         close();
     }
 }

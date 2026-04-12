@@ -2,6 +2,9 @@ package ca.docnest.shared.protocol;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PacketParser {
 
     // ---------------------------------------------------------
@@ -91,5 +94,23 @@ public class PacketParser {
         String details = json.has("details") ? json.get("details").asText() : "";
 
         return new ErrorPayload(code, message, details);
+    }
+
+    public static String[] parseListFilesResponse(DataPacket packet) {
+        if (packet.getCommand() != PacketType.LIST_FILES_RESPONSE) {
+            throw new IllegalArgumentException("Not a LIST_FILES_RESPONSE packet");
+        }
+
+        JsonNode json = parseJson(packet);
+        JsonNode files = json.get("files");
+        if (files == null || !files.isArray()) {
+            return new String[0];
+        }
+
+        List<String> parsed = new ArrayList<>();
+        for (JsonNode file : files) {
+            parsed.add(file.asText());
+        }
+        return parsed.toArray(new String[0]);
     }
 }

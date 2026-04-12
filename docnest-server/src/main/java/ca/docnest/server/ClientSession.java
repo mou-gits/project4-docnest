@@ -12,6 +12,7 @@ public class ClientSession implements Runnable {
     private final Socket socket;
     private final PacketTransport transport;
     private SessionState state = SessionState.CONNECTED;
+    private String userId;
 
     public ClientSession(Socket socket) throws IOException {
         this.socket = socket;
@@ -33,7 +34,7 @@ public class ClientSession implements Runnable {
                 // Route packet (Step 12)
                 PacketRouter.route(packet, this, transport);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Session error: " + e.getMessage());
         } finally {
             close();
@@ -48,6 +49,8 @@ public class ClientSession implements Runnable {
 
     public SessionState getState() { return state; }
     public void setState(SessionState s) { state = s; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     private void enforceStateRules(PacketType type) throws IOException {
 
@@ -74,8 +77,7 @@ public class ClientSession implements Runnable {
 
             case TRANSFERRING:
                 if (type != PacketType.UPLOAD_CHUNK &&
-                        type != PacketType.UPLOAD_COMPLETE &&
-                        type != PacketType.DOWNLOAD_CHUNK) {
+                        type != PacketType.UPLOAD_COMPLETE) {
                     throw new IOException("Protocol violation: Only transfer commands allowed");
                 }
                 break;

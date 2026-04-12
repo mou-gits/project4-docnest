@@ -1,23 +1,20 @@
 package ca.docnest.ui;
 
 import ca.docnest.client.network.ClientNetwork;
-import ca.docnest.shared.protocol.PacketBuilder;
-import ca.docnest.shared.protocol.PacketType;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 
 public class MainView {
 
@@ -32,19 +29,12 @@ public class MainView {
     }
 
     public void show() {
-
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(20));
 
-        // -------------------------
-        // FILE LIST
-        // -------------------------
         fileList = new ListView<>();
         refreshFileList();
 
-        // -------------------------
-        // BUTTONS
-        // -------------------------
         Button btnUpload = new Button("Upload");
         Button btnDownload = new Button("Download");
         Button btnDelete = new Button("Delete");
@@ -62,18 +52,13 @@ public class MainView {
 
         VBox centerBox = new VBox(10, new Label("Your Files:"), fileList, buttonBar);
         centerBox.setPadding(new Insets(10));
-
         root.setCenter(centerBox);
 
-        Scene scene = new Scene(root, 600, 400);
-        stage.setScene(scene);
-        stage.setTitle("DocNest — Dashboard");
+        stage.setScene(new Scene(root, 600, 400));
+        stage.setTitle("DocNest - Dashboard");
         stage.show();
     }
 
-    // ---------------------------------------------------------
-    // REFRESH FILE LIST
-    // ---------------------------------------------------------
     private void refreshFileList() {
         Task<String[]> task = new Task<>() {
             @Override
@@ -82,29 +67,19 @@ public class MainView {
             }
         };
 
-        task.setOnSucceeded(e -> {
-            fileList.setItems(FXCollections.observableArrayList(task.getValue()));
-        });
+        task.setOnSucceeded(e -> fileList.setItems(FXCollections.observableArrayList(task.getValue())));
+        task.setOnFailed(e -> showError("Failed to load file list: " + task.getException().getMessage()));
 
-        task.setOnFailed(e -> {
-            showError("Failed to load file list: " + task.getException().getMessage());
-        });
-
-        new Thread(task).start();
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    // ---------------------------------------------------------
-    // UPLOAD
-    // ---------------------------------------------------------
     private void handleUpload() {
-        UploadDialogFX dialog = new UploadDialogFX(client);
-        dialog.showAndWait();
+        new UploadDialogFX(client).showAndWait();
         refreshFileList();
     }
 
-    // ---------------------------------------------------------
-    // DOWNLOAD
-    // ---------------------------------------------------------
     private void handleDownload() {
         String filename = fileList.getSelectionModel().getSelectedItem();
         if (filename == null) {
@@ -115,9 +90,6 @@ public class MainView {
         new DownloadDialogFX(client, filename).showAndWait();
     }
 
-    // ---------------------------------------------------------
-    // DELETE
-    // ---------------------------------------------------------
     private void handleDelete() {
         String filename = fileList.getSelectionModel().getSelectedItem();
         if (filename == null) {
@@ -137,17 +109,13 @@ public class MainView {
             showInfo("File deleted.");
             refreshFileList();
         });
+        task.setOnFailed(e -> showError("Delete failed: " + task.getException().getMessage()));
 
-        task.setOnFailed(e -> {
-            showError("Delete failed: " + task.getException().getMessage());
-        });
-
-        new Thread(task).start();
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    // ---------------------------------------------------------
-    // LOGOUT
-    // ---------------------------------------------------------
     private void handleLogout() {
         Task<Void> task = new Task<>() {
             @Override
@@ -157,27 +125,19 @@ public class MainView {
             }
         };
 
-        task.setOnSucceeded(e -> {
-            stage.close();
-        });
+        task.setOnSucceeded(e -> stage.close());
+        task.setOnFailed(e -> showError("Logout failed: " + task.getException().getMessage()));
 
-        task.setOnFailed(e -> {
-            showError("Logout failed: " + task.getException().getMessage());
-        });
-
-        new Thread(task).start();
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    // ---------------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------------
     private void showError(String msg) {
-        Alert alert = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
-        alert.showAndWait();
+        new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK).showAndWait();
     }
 
     private void showInfo(String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
-        alert.showAndWait();
+        new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK).showAndWait();
     }
 }
