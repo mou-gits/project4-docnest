@@ -1,7 +1,7 @@
 package ca.docnest.ui;
 
-import ca.docnest.backend.BackendFake;
-import ca.docnest.model.User;
+import ca.docnest.client.network.ClientNetwork;
+import ca.docnest.shared.protocol.*;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,21 +14,18 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.nio.file.Files;
 
 public class UploadDialogFX {
 
-    private final BackendFake backend;
-    private final User user;
+    private final ClientNetwork client;
 
-    private File selectedFile = null;
-    private boolean uploadSuccess = false;
-
-    public UploadDialogFX(BackendFake backend, User user) {
-        this.backend = backend;
-        this.user = user;
+    public UploadDialogFX(ClientNetwork client) {
+        this.client = client;
     }
 
-    public boolean showAndWait() {
+    public void showAndWait() {
+
         Stage stage = new Stage();
         stage.setTitle("Upload File");
         stage.initModality(Modality.APPLICATION_MODAL);
@@ -39,109 +36,109 @@ public class UploadDialogFX {
         grid.setVgap(10);
         grid.setHgap(10);
 
-        Label lblFile = new Label("File Name:");
-        Label lblFileName = new Label("<none>");
-        Button btnChoose = new Button("Choose File");
+        Label lblFile = new Label("Choose File:");
+        Label lblFileName = new Label("(none)");
 
-        HBox fileBox = new HBox(10, lblFileName, btnChoose);
-        fileBox.setAlignment(Pos.CENTER_LEFT);
+        Button btnChoose = new Button("Browse...");
+        Button btnCancel = new Button("Cancel");
+        btnCancel.setDisable(true);
 
-        Label lblInfo = new Label("Additional Info:");
-        TextField txtInfo = new TextField();
-
-        Label lblProgress = new Label("Upload Progress:");
         ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(200);
+        progressBar.setPrefWidth(250);
 
         Label lblError = new Label();
         lblError.setStyle("-fx-text-fill: red;");
 
-        Button btnUpload = new Button("Upload File");
-        Button btnCancel = new Button("Cancel");
-
-        HBox buttonBox = new HBox(10, btnCancel, btnUpload);
+        HBox buttonBox = new HBox(10, btnCancel);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
         grid.add(lblFile, 0, 0);
-        grid.add(fileBox, 1, 0);
+        grid.add(lblFileName, 1, 0);
+        grid.add(btnChoose, 2, 0);
 
-        grid.add(lblInfo, 0, 1);
-        grid.add(txtInfo, 1, 1);
+        grid.add(new Label("Upload Progress:"), 0, 1);
+        grid.add(progressBar, 1, 1, 2, 1);
 
-        grid.add(lblProgress, 0, 2);
-        grid.add(progressBar, 1, 2);
+        grid.add(lblError, 0, 2, 3, 1);
+        grid.add(buttonBox, 0, 3, 3, 1);
 
-        grid.add(lblError, 0, 3, 2, 1);
+        Scene scene = new Scene(grid);
+        stage.setScene(scene);
 
-        grid.add(buttonBox, 0, 4, 2, 1);
+        final File[] selectedFile = {null};
 
-        // Choose file action
         btnChoose.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
             File file = chooser.showOpenDialog(stage);
-            if (file != null) {
-                selectedFile = file;
-                lblFileName.setText(file.getName());
-            }
-        });
 
-        // Upload action
-        btnUpload.setOnAction(e -> {
-            lblError.setText("");
+            if (file == null) return;
 
-            if (selectedFile == null) {
-                lblError.setText("Please choose a file first.");
-                return;
-            }
+            selectedFile[0] = file;
+            lblFileName.setText(file.getName());
 
-            btnUpload.setDisable(true);
             btnChoose.setDisable(true);
             btnCancel.setDisable(true);
 
-            Task<Boolean> task = new Task<>() {
-                @Override
-                protected Boolean call() throws Exception {
-                    // Fake progress
-                    for (int i = 0; i <= 100; i += 5) {
-                        Thread.sleep(50);
-                        updateProgress(i, 100);
-                    }
-
-                    // Actual backend upload
-                    return backend.uploadFile(user.getUserId(), selectedFile, txtInfo.getText());
-                }
-            };
+            Task<Void> task = createUploadTask(file, progressBar, lblError, stage);
 
             progressBar.progressProperty().bind(task.progressProperty());
 
-            task.setOnSucceeded(ev -> {
-                uploadSuccess = task.getValue();
-                if (uploadSuccess) {
-                    stage.close();
-                } else {
-                    lblError.setText("Upload failed.");
-                    btnUpload.setDisable(false);
-                    btnChoose.setDisable(false);
-                    btnCancel.setDisable(false);
-                }
-            });
-
+            task.setOnSucceeded(ev -> stage.close());
             task.setOnFailed(ev -> {
-                lblError.setText("Unexpected error.");
-                btnUpload.setDisable(false);
-                btnChoose.setDisable(false);
+                lblError.setText("Upload failed: " + task.getException().getMessage());
                 btnCancel.setDisable(false);
             });
 
-            new Thread(task).start();
+            btnCancel.setOnAction(ev -> stage.close());
+
+            Thread t = new Thread(task);
+            t.setDaemon(true);
+            t.start();
         });
 
-        btnCancel.setOnAction(e -> stage.close());
-
-        Scene scene = new Scene(grid, 450, 250);
-        stage.setScene(scene);
         stage.showAndWait();
+    }
 
-        return uploadSuccess;
+    private Task<Void> createUploadTask(File file, ProgressBar progressBar, Label lblError, Stage stage) {
+        return new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+
+                byte[] data = Files.readAllBytes(file.toPath());
+
+                // 1. INIT
+                var init = PacketBuilder.buildUploadInitPacket(file.getName(), data.length);
+                client.getTransport().send(init);
+
+                var ack = client.getTransport().receive();
+                if (ack.getCommand() != PacketType.UPLOAD_ACK)
+                    throw new Exception("Upload init failed");
+
+                // 2. CHUNKS
+                int offset = 0;
+                for (byte[] chunk : PacketBuilder.splitIntoChunks(data)) {
+
+                    var chunkPacket = PacketBuilder.buildChunkPacket(PacketType.UPLOAD_CHUNK, chunk);
+                    client.getTransport().send(chunkPacket);
+
+                    var chunkAck = client.getTransport().receive();
+                    if (chunkAck.getCommand() != PacketType.CHUNK_ACK)
+                        throw new Exception("Chunk upload failed");
+
+                    offset += chunk.length;
+                    updateProgress(offset, data.length);
+                }
+
+                // 3. COMPLETE
+                var complete = PacketBuilder.buildUploadCompletePacket();
+                client.getTransport().send(complete);
+
+                var done = client.getTransport().receive();
+                if (done.getCommand() != PacketType.UPLOAD_COMPLETE_RESPONSE)
+                    throw new Exception("Upload did not complete");
+
+                return null;
+            }
+        };
     }
 }

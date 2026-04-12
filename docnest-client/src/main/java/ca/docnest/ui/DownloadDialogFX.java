@@ -1,7 +1,9 @@
 package ca.docnest.ui;
 
-import ca.docnest.backend.BackendFake;
-import ca.docnest.model.User;
+import ca.docnest.client.network.ClientNetwork;
+import ca.docnest.shared.protocol.PacketBuilder;
+import ca.docnest.shared.protocol.PacketParser;
+import ca.docnest.shared.protocol.PacketType;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,17 +20,16 @@ import java.nio.file.Files;
 
 public class DownloadDialogFX {
 
-    private final BackendFake backend;
-    private final User user;
+    private final ClientNetwork client;
     private final String filename;
 
-    public DownloadDialogFX(BackendFake backend, User user, String filename) {
-        this.backend = backend;
-        this.user = user;
+    public DownloadDialogFX(ClientNetwork client, String filename) {
+        this.client = client;
         this.filename = filename;
     }
 
     public void showAndWait() {
+
         Stage stage = new Stage();
         stage.setTitle("Download File");
         stage.initModality(Modality.APPLICATION_MODAL);
@@ -44,12 +45,13 @@ public class DownloadDialogFX {
 
         Label lblProgress = new Label("Download Progress:");
         ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(200);
+        progressBar.setPrefWidth(250);
 
         Label lblError = new Label();
         lblError.setStyle("-fx-text-fill: red;");
 
         Button btnCancel = new Button("Cancel");
+        btnCancel.setDisable(true);
 
         HBox buttonBox = new HBox(10, btnCancel);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
@@ -61,47 +63,64 @@ public class DownloadDialogFX {
         grid.add(progressBar, 1, 1);
 
         grid.add(lblError, 0, 2, 2, 1);
-
         grid.add(buttonBox, 0, 3, 2, 1);
 
-        btnCancel.setOnAction(e -> stage.close());
+        Scene scene = new Scene(grid);
+        stage.setScene(scene);
 
-        // Start download immediately
-        Task<Boolean> task = new Task<>() {
+        // -----------------------------
+        // REAL DOWNLOAD TASK
+        // -----------------------------
+        Task<byte[]> task = new Task<>() {
             @Override
-            protected Boolean call() throws Exception {
-                // Fake progress
-                for (int i = 0; i <= 100; i += 5) {
-                    Thread.sleep(50);
-                    updateProgress(i, 100);
+            protected byte[] call() throws Exception {
+
+                // Step 1: Request download metadata
+                // (ClientNetwork.download() already handles this)
+                // But we need progress, so we reimplement the logic here.
+
+                // Send DOWNLOAD_INIT
+                var initPacket = PacketBuilder.buildDownloadInitPacket(filename);
+                client.getTransport().send(initPacket);
+
+                // Receive META
+                var meta = client.getTransport().receive();
+                var metaJson = PacketParser.parseJson(meta);
+                int size = metaJson.get("size").asInt();
+
+                byte[] buffer = new byte[size];
+                int offset = 0;
+
+                // Step 2: Receive chunks
+                while (true) {
+                    var p = client.getTransport().receive();
+
+                    if (p.getCommand() == PacketType.DOWNLOAD_COMPLETE) {
+                        break;
+                    }
+
+                    if (p.getCommand() != PacketType.DOWNLOAD_CHUNK) {
+                        throw new Exception("Unexpected packet during download");
+                    }
+
+                    byte[] chunk = PacketParser.parseChunk(p);
+                    System.arraycopy(chunk, 0, buffer, offset, chunk.length);
+                    offset += chunk.length;
+
+                    updateProgress(offset, size);
                 }
 
-                // Actual backend download
-                byte[] data = backend.downloadFile(user.getUserId(), filename);
-                return data != null;
+                return buffer;
             }
         };
 
+        // Bind progress bar
         progressBar.progressProperty().bind(task.progressProperty());
 
+        // On success
         task.setOnSucceeded(ev -> {
-            boolean backendSuccess = task.getValue();
+            byte[] data = task.getValue();
 
-            if (!backendSuccess) {
-                lblError.setText("Download failed.");
-                btnCancel.setDisable(false);
-                return;
-            }
-
-            // Retrieve file bytes again
-            byte[] data = backend.downloadFile(user.getUserId(), filename);
-            if (data == null) {
-                lblError.setText("Download failed.");
-                btnCancel.setDisable(false);
-                return;
-            }
-
-            // Ask user where to save
             FileChooser chooser = new FileChooser();
             chooser.setInitialFileName(filename);
             File saveTo = chooser.showSaveDialog(stage);
@@ -109,26 +128,28 @@ public class DownloadDialogFX {
             if (saveTo != null) {
                 try {
                     Files.write(saveTo.toPath(), data);
-                    stage.close();
-                } catch (Exception ex) {
+                } catch (Exception e) {
                     lblError.setText("Failed to save file.");
-                    btnCancel.setDisable(false);
                 }
-            } else {
-                lblError.setText("Download cancelled.");
-                btnCancel.setDisable(false);
             }
+
+            stage.close();
         });
 
+        // On failure
         task.setOnFailed(ev -> {
-            lblError.setText("Unexpected error.");
+            lblError.setText("Download failed: " + task.getException().getMessage());
             btnCancel.setDisable(false);
         });
 
-        new Thread(task).start();
+        // Cancel button closes dialog
+        btnCancel.setOnAction(e -> stage.close());
 
-        Scene scene = new Scene(grid, 400, 200);
-        stage.setScene(scene);
+        // Start background thread
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+
         stage.showAndWait();
     }
 }
