@@ -52,3 +52,11 @@ Thumbs.db
 ############################
 hs_err_pid*
 replay_pid*
+
+############################
+# Code dump files
+############################
+DumpCode.ps1
+all-java-*.txt
+
+
