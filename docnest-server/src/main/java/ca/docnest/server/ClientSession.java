@@ -14,6 +14,10 @@ public class ClientSession implements Runnable {
     private SessionState state = SessionState.CONNECTED;
     private String userId;
 
+    private String pendingUploadInfo;
+    private String pendingUploadFilename;
+    private long pendingUploadSize;
+
     public ClientSession(Socket socket) throws IOException {
         this.socket = socket;
         this.transport = new PacketTransport(
@@ -22,11 +26,39 @@ public class ClientSession implements Runnable {
         );
     }
 
+    public String getPendingUploadInfo() {
+        return pendingUploadInfo;
+    }
+
+    public String getPendingUploadFilename() {
+        return pendingUploadFilename;
+    }
+
+    public long getPendingUploadSize() {
+        return pendingUploadSize;
+    }
+
+    public void setPendingUploadInfo(String pendingUploadInfo) {
+        this.pendingUploadInfo = pendingUploadInfo;
+    }
+
+    public void setPendingUploadFilename(String pendingUploadFilename) {
+        this.pendingUploadFilename = pendingUploadFilename;
+    }
+
+    public void setPendingUploadSize(long pendingUploadSize) {
+        this.pendingUploadSize = pendingUploadSize;
+    }
+
     @Override
     public void run() {
         try {
+            Logger.info("Session started for " + socket.getRemoteSocketAddress());
             while (!socket.isClosed()) {
                 DataPacket packet = transport.receive();
+
+                Logger.info("Received: " + packet.getCommand() +
+                        " from " + socket.getRemoteSocketAddress());
 
                 // State machine enforcement (Step 13)
                 enforceStateRules(packet.getCommand());
@@ -35,8 +67,9 @@ public class ClientSession implements Runnable {
                 PacketRouter.route(packet, this, transport);
             }
         } catch (Exception e) {
-            System.err.println("Session error: " + e.getMessage());
+            Logger.error("Session error: " + e.getMessage());
         } finally {
+            Logger.info("Session closed for " + socket.getRemoteSocketAddress());
             close();
         }
     }

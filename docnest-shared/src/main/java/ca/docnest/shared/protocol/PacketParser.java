@@ -1,6 +1,8 @@
 package ca.docnest.shared.protocol;
 
+import ca.docnest.shared.model.FileMetadata;
 import com.fasterxml.jackson.databind.JsonNode;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,35 @@ public class PacketParser {
                         "Packet type " + packet.getCommand() + " is not JSON-based."
                 );
         }
+    }
+
+    public static List<FileMetadata> parseFileMetadataList(DataPacket packet) {
+        var json = parseJson(packet);
+        if (json == null) {
+            throw new IllegalArgumentException("LIST_FILES_RESPONSE has null JSON");
+        }
+        var files = json.get("files");
+        if (files == null || !files.isArray()) {
+            return new ArrayList<>();
+        }
+
+        List<FileMetadata> list = new ArrayList<>();
+
+        if (files != null && files.isArray()) {
+            for (var f : files) {
+                list.add(new FileMetadata(
+                        f.has("filename") ? f.get("filename").asText() : "",
+                        f.has("size") ? f.get("size").asLong() : 0,
+                        f.has("type") ? f.get("type").asText() : "",
+                        f.has("uploadedBy") ? f.get("uploadedBy").asText() : "",
+                        f.has("uploadDate") ? f.get("uploadDate").asText() : "",
+                        f.has("additionalInfo") ? f.get("additionalInfo").asText() : ""
+                ));
+            }
+        }
+        System.out.println("RAW JSON: " + json.toPrettyString());
+        return list;
+
     }
 
     // ---------------------------------------------------------

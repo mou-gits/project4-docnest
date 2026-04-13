@@ -1,13 +1,9 @@
 package ca.docnest.ui;
 
-import ca.docnest.client.network.ClientNetwork;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Modality;
@@ -16,18 +12,30 @@ import javafx.stage.Stage;
 public class LoginDialogFX {
 
     private final Stage owner;
-    private ClientNetwork authenticatedClient;
+
+    private String username;
+    private String password;
 
     public LoginDialogFX(Stage owner) {
         this.owner = owner;
     }
 
-    public ClientNetwork showAndWait() {
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void showAndWait() {
         Stage stage = new Stage();
         stage.setTitle("Login");
+
         if (owner != null) {
             stage.initOwner(owner);
         }
+
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.setResizable(false);
 
@@ -36,17 +44,8 @@ public class LoginDialogFX {
         grid.setVgap(10);
         grid.setHgap(10);
 
-        Label lblUsername = new Label("Username:");
         TextField txtUsername = new TextField();
-
-        Label lblPassword = new Label("Password:");
         PasswordField txtPassword = new PasswordField();
-
-        Label lblHost = new Label("Host:");
-        TextField txtHost = new TextField("localhost");
-
-        Label lblPort = new Label("Port:");
-        TextField txtPort = new TextField("9090");
 
         Label lblError = new Label();
         lblError.setStyle("-fx-text-fill: red;");
@@ -57,57 +56,36 @@ public class LoginDialogFX {
         HBox buttonBox = new HBox(10, btnCancel, btnLogin);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
-        grid.add(lblUsername, 0, 0);
+        grid.add(new Label("Username:"), 0, 0);
         grid.add(txtUsername, 1, 0);
-        grid.add(lblPassword, 0, 1);
+
+        grid.add(new Label("Password:"), 0, 1);
         grid.add(txtPassword, 1, 1);
-        grid.add(lblHost, 0, 2);
-        grid.add(txtHost, 1, 2);
-        grid.add(lblPort, 0, 3);
-        grid.add(txtPort, 1, 3);
-        grid.add(lblError, 0, 4, 2, 1);
-        grid.add(buttonBox, 0, 5, 2, 1);
 
-        btnCancel.setOnAction(e -> stage.close());
+        grid.add(lblError, 0, 2, 2, 1);
+        grid.add(buttonBox, 0, 3, 2, 1);
 
-        btnLogin.setOnAction(e -> {
-            String username = txtUsername.getText().trim();
-            String password = txtPassword.getText();
-            String host = txtHost.getText().trim();
-            String portText = txtPort.getText().trim();
-
-            if (username.isEmpty() || password.isEmpty() || host.isEmpty() || portText.isEmpty()) {
-                lblError.setText("All fields are required.");
-                return;
-            }
-
-            int port;
-            try {
-                port = Integer.parseInt(portText);
-            } catch (NumberFormatException ex) {
-                lblError.setText("Port must be a number.");
-                return;
-            }
-
-            try {
-                ClientNetwork client = new ClientNetwork();
-                client.connect(host, port);
-                if (!client.login(username, password)) {
-                    client.close();
-                    lblError.setText("Login failed.");
-                    return;
-                }
-
-                authenticatedClient = client;
-                stage.close();
-            } catch (Exception ex) {
-                lblError.setText(ex.getMessage());
-            }
+        btnCancel.setOnAction(e -> {
+            username = null;
+            password = null;
+            stage.close();
         });
 
-        stage.setScene(new Scene(grid, 380, 260));
-        stage.showAndWait();
+        btnLogin.setOnAction(e -> {
+            String u = txtUsername.getText().trim();
+            String p = txtPassword.getText();
 
-        return authenticatedClient;
+            if (u.isEmpty() || p.isEmpty()) {
+                lblError.setText("Username and password required.");
+                return;
+            }
+
+            username = u;
+            password = p;
+            stage.close();
+        });
+
+        stage.setScene(new Scene(grid, 300, 180));
+        stage.showAndWait();
     }
 }

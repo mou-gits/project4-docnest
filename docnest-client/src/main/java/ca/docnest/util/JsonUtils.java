@@ -1,13 +1,12 @@
 package ca.docnest.util;
 
-import ca.docnest.model.FileMetadata;
+import ca.docnest.shared.model.FileMetadata;
 import ca.docnest.model.User;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 

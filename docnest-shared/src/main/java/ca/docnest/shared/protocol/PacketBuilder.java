@@ -122,22 +122,22 @@ public class PacketBuilder {
         return buildJsonPacket(PacketType.LIST_FILES, Map.of());
     }
 
-    public static DataPacket buildListFilesResponsePacket(Object fileListJson) {
-        return buildJsonPacket(PacketType.LIST_FILES_RESPONSE, fileListJson);
-    }
 
-    public static DataPacket buildListFilesResponsePacket(List<String> filenames) {
-        return buildJsonPacket(PacketType.LIST_FILES_RESPONSE, Map.of("files", filenames));
+    public static DataPacket buildListFilesResponsePacket(java.util.List<?> records) {
+        return buildJsonPacket(
+                PacketType.LIST_FILES_RESPONSE,
+                java.util.Map.of("files", records)
+        );
     }
-
     // ---------------------------------------------------------
     // UPLOAD_INIT / UPLOAD_READY
     // ---------------------------------------------------------
 
-    public static DataPacket buildUploadInitPacket(String filename, long size) {
+    public static DataPacket buildUploadInitPacket(String filename, long size, String info) {
         var json = Map.of(
                 "filename", filename,
-                "size", size
+                "size", size,
+                "info", info == null ? "" : info
         );
         return buildJsonPacket(PacketType.UPLOAD_INIT, json);
     }

@@ -1,6 +1,6 @@
 package ca.docnest.ui;
 
-import ca.docnest.model.FileMetadata;
+import ca.docnest.shared.model.FileMetadata;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 
@@ -22,7 +22,7 @@ public class FileInfoDialogFX {
                 meta.getSize(),
                 meta.getType(),
                 meta.getUploadDate(),
-                meta.getInfo()
+                meta.getAdditionalInfo()
         );
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);

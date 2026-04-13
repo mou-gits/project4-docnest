@@ -1,4 +1,4 @@
-package ca.docnest.model;
+package ca.docnest.shared.model;
 
 public class FileMetadata {
     private String filename;
@@ -6,18 +6,22 @@ public class FileMetadata {
     private String type;
     private String uploadedBy;
     private String uploadDate;
-    private String info;
+    private String additionalInfo;
 
     public FileMetadata() {}
 
-    public FileMetadata(String filename, long size, String type,
-                        String uploadedBy, String uploadDate, String info) {
+    public FileMetadata(String filename,
+                        long size,
+                        String type,
+                        String uploadedBy,
+                        String uploadDate,
+                        String additionalInfo) {
         this.filename = filename;
         this.size = size;
         this.type = type;
         this.uploadedBy = uploadedBy;
         this.uploadDate = uploadDate;
-        this.info = info;
+        this.additionalInfo = additionalInfo;
     }
 
     public String getFilename() {
@@ -40,7 +44,7 @@ public class FileMetadata {
         return uploadDate;
     }
 
-    public String getInfo() {
-        return info;
+    public String getAdditionalInfo() {
+        return additionalInfo;
     }
 }

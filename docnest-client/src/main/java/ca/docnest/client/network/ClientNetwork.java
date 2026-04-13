@@ -5,6 +5,7 @@ import ca.docnest.shared.protocol.PacketBuilder;
 import ca.docnest.shared.protocol.PacketParser;
 import ca.docnest.shared.protocol.PacketTransport;
 import ca.docnest.shared.protocol.PacketType;
+import ca.docnest.shared.model.FileMetadata;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -52,12 +53,12 @@ public class ClientNetwork {
         throw new IOException("Unexpected response during login");
     }
 
-    public String[] listFiles() throws Exception {
+    public java.util.List<FileMetadata> listFiles() throws Exception {
         transport.send(PacketBuilder.buildListFilesPacket());
         DataPacket resp = transport.receive();
 
         if (resp.getCommand() == PacketType.LIST_FILES_RESPONSE) {
-            return PacketParser.parseListFilesResponse(resp);
+            return PacketParser.parseFileMetadataList(resp);
         }
 
         if (resp.getCommand() == PacketType.ERROR) {
@@ -68,8 +69,8 @@ public class ClientNetwork {
         throw new IOException("Unexpected response to LIST_FILES");
     }
 
-    public void upload(String filename, byte[] data) throws Exception {
-        transport.send(PacketBuilder.buildUploadInitPacket(filename, data.length));
+    public void upload(String filename, byte[] data, String info) throws Exception {
+        transport.send(PacketBuilder.buildUploadInitPacket(filename, data.length,info));
 
         DataPacket ack = transport.receive();
         if (ack.getCommand() == PacketType.ERROR) {

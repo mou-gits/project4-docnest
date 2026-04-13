@@ -59,5 +59,6 @@ public class PacketRouter {
     private static void sendError(PacketTransport transport, int code, String msg, String details) throws Exception {
         DataPacket error = PacketBuilder.buildErrorPacket(code, msg, details);
         transport.send(error);
+        Logger.error("ERROR sent: " + msg + " (" + details + ")");
     }
 }
