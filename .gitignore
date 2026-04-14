@@ -5,6 +5,8 @@
 *.iml
 out/
 jre/
+archive/
+dist/
 
 # User-specific IntelliJ files (never commit)
 .idea/workspace.xml
@@ -51,3 +53,11 @@ Thumbs.db
 ############################
 hs_err_pid*
 replay_pid*
+
+############################
+# Code dump files
+############################
+DumpCode.ps1
+all-java-*.txt
+
+
