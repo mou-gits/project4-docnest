@@ -13,13 +13,6 @@
   "uploadDate" : "2026-04-13 05:10:11",
   "additionalInfo" : ""
 }, {
-  "filename" : "Aishwarya_071.jpg",
-  "size" : 152565,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 07:47:45",
-  "additionalInfo" : ""
-}, {
   "filename" : "Work Term Schedule.docx",
   "size" : 15934,
   "type" : "application/octet-stream",
@@ -54,4 +47,11 @@
   "uploadedBy" : "mou",
   "uploadDate" : "2026-04-13 20:55:05",
   "additionalInfo" : ""
+}, {
+  "filename" : "ChatGPT Image Mar 2, 2026, 02_49_04 PM.png",
+  "size" : 3885180,
+  "type" : "application/octet-stream",
+  "uploadedBy" : "mou",
+  "uploadDate" : "2026-04-13 21:58:25",
+  "additionalInfo" : "aiphoto"
 } ]

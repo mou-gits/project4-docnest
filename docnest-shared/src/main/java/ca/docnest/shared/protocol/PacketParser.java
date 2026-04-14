@@ -13,35 +13,22 @@ public class PacketParser {
     // Parse JSON-based packets
     // ---------------------------------------------------------
     public static JsonNode parseJson(DataPacket packet) {
-        switch (packet.getCommand()) {
-            case LOGIN:
-            case LOGIN_RESPONSE:
-            case LIST_FILES:
-            case LIST_FILES_RESPONSE:
-            case UPLOAD_INIT:
-            case UPLOAD_READY:
-            case UPLOAD_COMPLETE:
-            case UPLOAD_RESULT:
-            case DOWNLOAD_INIT:
-            case DOWNLOAD_READY:
-            case DOWNLOAD_COMPLETE:
-            case DELETE_FILE:
-            case DELETE_RESPONSE:
-            case LOGOUT:
-            case ERROR:
+        return switch (packet.getCommand()) {
+            case LOGIN, LOGIN_RESPONSE, LIST_FILES, LIST_FILES_RESPONSE, UPLOAD_INIT, UPLOAD_READY, UPLOAD_COMPLETE,
+                 UPLOAD_RESULT, DOWNLOAD_INIT, DOWNLOAD_READY, DOWNLOAD_COMPLETE, DELETE_FILE, DELETE_RESPONSE, LOGOUT,
+                 ERROR -> {
 
                 // JSON VALIDATION GOES HERE
                 if (packet.getPayloadSize() == 0) {
                     throw new IllegalArgumentException("JSON packet has empty payload");
                 }
 
-                return PacketBuilder.bytesToJson(packet.getPayload());
-
-            default:
-                throw new IllegalArgumentException(
-                        "Packet type " + packet.getCommand() + " is not JSON-based."
-                );
-        }
+                yield PacketBuilder.bytesToJson(packet.getPayload());
+            }
+            default -> throw new IllegalArgumentException(
+                    "Packet type " + packet.getCommand() + " is not JSON-based."
+            );
+        };
     }
 
     public static List<FileMetadata> parseFileMetadataList(DataPacket packet) {
@@ -68,7 +55,6 @@ public class PacketParser {
                 ));
             }
         }
-        System.out.println("RAW JSON: " + json.toPrettyString());
         return list;
 
     }
