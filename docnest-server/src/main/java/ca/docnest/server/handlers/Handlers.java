@@ -43,14 +43,23 @@ public class Handlers {
         String filename = json.get("filename").asText();
         long size = json.get("size").asLong();
 
+        String fileId = java.util.UUID.randomUUID().toString();
+
+
         String additionalInfo = json.has("info") ? json.get("info").asText() : "";
 
+        session.setPendingFileId(fileId);
         session.setPendingUploadInfo(additionalInfo);
         session.setPendingUploadFilename(filename);
         session.setPendingUploadSize(size);
 
-        FileStorage.beginUpload(session.getUserId(), filename, size);
-        transport.send(PacketBuilder.buildUploadReadyPacket(filename));
+        FileStorage.beginUpload(
+                session.getUserId(),
+                fileId,
+                filename,
+                size
+        );
+        transport.send(PacketBuilder.buildUploadReadyPacket());
         session.setState(SessionState.TRANSFERRING);
 
 
@@ -72,26 +81,32 @@ public class Handlers {
 
         String userId = session.getUserId();
         String filename = session.getPendingUploadFilename();
+        String fileId = session.getPendingFileId(); // ✅ NEW
 
         try {
-            FileStorage.finishUpload(session.getUserId());
+            FileStorage.finishUpload(userId);
+
             try {
-                // 2. Persist metadata ONLY after successful file write
                 MetadataStore.addFile(
-                        session.getUserId(),
-                        session.getPendingUploadFilename(),
+                        userId,
+                        fileId,
+                        filename,
                         session.getPendingUploadSize(),
                         "application/octet-stream",
                         session.getPendingUploadInfo()
                 );
-            } catch(Exception metadataError) {
+
+            } catch (Exception metadataError) {
+
                 try {
-                    FileStorage.deleteFile(userId, filename);
-                    Logger.error("Rollback: deleted file due to metadata failure: " + filename);
+                    FileStorage.deleteFileById(userId, fileId);
+                    Logger.error("Rollback: deleted file due to metadata failure: " + fileId);
                 } catch (Exception rollbackError) {
-                    Logger.error("Rollback FAILED for file: " + filename + " : " + rollbackError.getMessage());
+                    Logger.error("Rollback FAILED for fileId: " + fileId +
+                            " : " + rollbackError.getMessage());
                 }
-                throw metadataError; // rethrow to outer catch
+
+                throw metadataError;
             }
 
             // 3. Notify client
@@ -100,28 +115,53 @@ public class Handlers {
                     "Upload complete"
             ));
 
-            Logger.info("UPLOAD_COMPLETE success for user: " + session.getUserId());
-        } catch (Exception e) {
-            Logger.error("UPLOAD_COMPLETE failed for user: "
-                    + session.getUserId() + " : " + e.getMessage());
+            Logger.info("UPLOAD_COMPLETE success for user: " + userId);
 
-            // Send error packet to client
+        } catch (Exception e) {
+
+            Logger.error("UPLOAD_COMPLETE failed for user: "
+                    + userId + " : " + e.getMessage());
+
             transport.send(PacketBuilder.buildErrorPacket(
                     500,
                     "Upload failed",
                     e.getMessage()
             ));
+
         } finally {
-            // Return session to READY state
             session.setState(SessionState.READY);
         }
     }
 
     public static void handleDownloadInit(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
         var json = PacketParser.parseJson(packet);
-        String filename = json.get("filename").asText();
 
-        byte[] file = FileStorage.readFile(session.getUserId(), filename);
+        String filename = json.get("filename").asText();
+        String userId = session.getUserId();
+
+        var meta = MetadataStore.findByFilename(userId, filename);
+
+        if (meta == null) {
+            transport.send(PacketBuilder.buildErrorPacket(
+                    404,
+                    "File not found",
+                    filename
+            ));
+            return;
+        }
+
+        String fileId = meta.getFileId();
+
+        byte[] file;
+
+        if (fileId == null || fileId.isBlank()) {
+            // OLD FILE (pre-UUID)
+            file = FileStorage.readFile(userId, filename);
+        } else {
+            // NEW FILE (UUID-based)
+            file = FileStorage.readFileById(userId, fileId);
+        }
+
         session.setState(SessionState.TRANSFERRING);
         transport.send(PacketBuilder.buildDownloadReadyPacket(filename, file.length));
 
@@ -142,21 +182,68 @@ public class Handlers {
         ));
     }
 
-    public static void handleDeleteFile(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-        var json = PacketParser.parseJson(packet);
-        String filename = json.get("filename").asText();
+    public static void handleDeleteFile(
+            DataPacket packet,
+            ClientSession session,
+            PacketTransport transport
+    ) throws Exception {
 
-        boolean ok = FileStorage.deleteFile(session.getUserId(), filename);
-        if (!ok) {
-            transport.send(PacketBuilder.buildErrorPacket(404, "File not found", filename));
-            return;
+        try {
+            var json = PacketParser.parseJson(packet);
+            String filename = json.get("filename").asText();
+            String userId = session.getUserId();
+
+            var meta = MetadataStore.findByFilename(userId, filename);
+
+            if (meta == null) {
+                transport.send(PacketBuilder.buildErrorPacket(
+                        404,
+                        "File not found",
+                        filename
+                ));
+                return;
+            }
+
+            String fileId = meta.getFileId();
+            boolean ok;
+
+            if (fileId == null || fileId.isBlank()) {
+                ok = FileStorage.deleteFile(userId, filename);
+            } else {
+                ok = FileStorage.deleteFileById(userId, fileId);
+            }
+
+            if (!ok) {
+                transport.send(PacketBuilder.buildErrorPacket(
+                        404,
+                        "File not found",
+                        filename
+                ));
+                return;
+            }
+
+            // Remove metadata
+            MetadataStore.deleteFile(userId, filename);
+
+            // Send success response ONCE
+            transport.send(PacketBuilder.buildDeleteResponsePacket(
+                    true,
+                    "Deleted " + filename
+            ));
+
+            Logger.info("DELETE_FILE: " + filename + " by " + userId);
+
+        } catch (Exception e) {
+
+            Logger.error("DELETE_FILE failed: " + e.getMessage());
+
+            transport.send(PacketBuilder.buildErrorPacket(
+                    500,
+                    "Delete failed",
+                    e.getMessage()
+            ));
         }
-
-        transport.send(PacketBuilder.buildDeleteResponsePacket(true, "Deleted " + filename));
-        MetadataStore.deleteFile(session.getUserId(), filename);
-        Logger.info("DELETE_FILE: " + filename + " by " + session.getUserId());
     }
-
     public static void handleLogout(DataPacket packet, ClientSession session, PacketTransport transport) {
         session.setState(SessionState.CLOSING);
         session.close();

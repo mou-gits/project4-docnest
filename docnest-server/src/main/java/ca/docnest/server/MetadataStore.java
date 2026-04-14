@@ -36,7 +36,7 @@ public class MetadataStore {
         }
     }
 
-    private static void save(String userId, List<FileMetadata> records) {
+    static void save(String userId, List<FileMetadata> records) {
         try {
             Path path = userFile(userId);
             Files.createDirectories(path.getParent());
@@ -49,12 +49,24 @@ public class MetadataStore {
 
     // ---------------- PUBLIC API ----------------
 
-    public static void addFile(String userId, String filename, long size,
-                               String mime, String additionalInfo) {
+    public static FileMetadata findByFilename(String userId, String filename) {
+        return load(userId).stream()
+                .filter(f -> f.getFilename().equals(filename))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static void addFile(String userId,
+                               String fileId,
+                               String filename,
+                               long size,
+                               String mime,
+                               String additionalInfo){
 
         List<FileMetadata> records = load(userId);
 
         FileMetadata record = new FileMetadata(
+                fileId,
                 filename,
                 size,
                 mime,

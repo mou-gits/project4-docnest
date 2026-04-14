@@ -18,6 +18,12 @@ public class ClientSession implements Runnable {
     private String pendingUploadFilename;
     private long pendingUploadSize;
 
+    private String pendingFileId;
+
+    public String getPendingFileId() { return pendingFileId; }
+
+    public void setPendingFileId(String id) { this.pendingFileId = id; }
+
     public ClientSession(Socket socket) throws IOException {
         this.socket = socket;
         this.transport = new PacketTransport(

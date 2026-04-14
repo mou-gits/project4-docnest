@@ -1,4 +1,15 @@
 package ca.docnest.shared.protocol;
+/**
+ * Packet Semantics:
+ *
+ * - filename: user-visible file name (provided by client)
+ * - fileId: internal unique identifier (UUID, server-side only)
+ *
+ * Client interacts using filename.
+ * Server resolves filename → fileId via metadata.
+ *
+ * All storage operations MUST use fileId.
+ */
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -142,11 +153,8 @@ public class PacketBuilder {
         return buildJsonPacket(PacketType.UPLOAD_INIT, json);
     }
 
-    public static DataPacket buildUploadReadyPacket(String fileId) {
-        var json = Map.of(
-                "fileId", fileId
-        );
-        return buildJsonPacket(PacketType.UPLOAD_READY, json);
+    public static DataPacket buildUploadReadyPacket() {
+        return buildJsonPacket(PacketType.UPLOAD_READY, Map.of());
     }
 
     // ---------------------------------------------------------
@@ -155,13 +163,6 @@ public class PacketBuilder {
 
     public static DataPacket buildUploadChunkPacket(byte[] chunk) {
         return buildChunkPacket(PacketType.UPLOAD_CHUNK, chunk);
-    }
-
-    public static DataPacket buildUploadCompletePacket(String fileId) {
-        var json = Map.of(
-                "fileId", fileId
-        );
-        return buildJsonPacket(PacketType.UPLOAD_COMPLETE, json);
     }
 
     public static DataPacket buildUploadCompletePacket() {
@@ -180,9 +181,9 @@ public class PacketBuilder {
     // UPLOAD_CHUNK / UPLOAD_COMPLETE / UPLOAD_RESULT
     // ---------------------------------------------------------
 
-    public static DataPacket buildDownloadInitPacket(String fileId) {
+    public static DataPacket buildDownloadInitPacket(String filename) {
         var json = Map.of(
-                "filename", fileId
+                "filename", filename
         );
         return buildJsonPacket(PacketType.DOWNLOAD_INIT, json);
     }
@@ -199,9 +200,9 @@ public class PacketBuilder {
         return buildChunkPacket(PacketType.DOWNLOAD_CHUNK, chunk);
     }
 
-    public static DataPacket buildDownloadCompletePacket(String fileId) {
+    public static DataPacket buildDownloadCompletePacket(String filename) {
         var json = Map.of(
-                "filename", fileId
+                "filename", filename
         );
         return buildJsonPacket(PacketType.DOWNLOAD_COMPLETE, json);
     }
@@ -214,9 +215,9 @@ public class PacketBuilder {
     // DELETE_FILE / DELETE_RESPONSE
     // ---------------------------------------------------------
 
-    public static DataPacket buildDeleteFilePacket(String fileId) {
+    public static DataPacket buildDeleteFilePacket(String filename) {
         var json = Map.of(
-                "filename", fileId
+                "filename", filename
         );
         return buildJsonPacket(PacketType.DELETE_FILE, json);
     }

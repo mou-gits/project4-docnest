@@ -1,57 +1,17 @@
 [ {
-  "filename" : "ami5.jpg",
-  "size" : 79819,
-  "type" : "mou",
-  "uploadedBy" : "application/octet-stream",
-  "uploadDate" : "2026-04-13 05:01:02",
+  "fileId" : "6fd9a8d2-29c9-4857-ba4e-f81bc47f25ff",
+  "filename" : "all-java-docnest-client.txt",
+  "size" : 69032,
+  "type" : "application/octet-stream",
+  "uploadedBy" : "mou",
+  "uploadDate" : "2026-04-14 12:55:17",
   "additionalInfo" : ""
 }, {
-  "filename" : "[virtuoso]IIT Kgp Bird-view.jpg",
-  "size" : 39101,
-  "type" : "mou",
-  "uploadedBy" : "application/octet-stream",
-  "uploadDate" : "2026-04-13 05:10:11",
-  "additionalInfo" : ""
-}, {
+  "fileId" : "f078ed30-70bf-4f4d-babe-61b2097b294c",
   "filename" : "Work Term Schedule.docx",
   "size" : 15934,
   "type" : "application/octet-stream",
   "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 20:22:51",
-  "additionalInfo" : "Information about coop"
-}, {
-  "filename" : "Hakan Sukur - scores worldcup's fastest ever goal.mpeg",
-  "size" : 3822980,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 20:40:04",
-  "additionalInfo" : "video large "
-}, {
-  "filename" : "Best Goal Of 97 - Clarence Seedorf - Real Madrid (1).mpg",
-  "size" : 1250764,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 20:46:37",
-  "additionalInfo" : "Large file"
-}, {
-  "filename" : "Soccer-]Ronaldo.mpeg",
-  "size" : 1136640,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 20:46:54",
-  "additionalInfo" : "large"
-}, {
-  "filename" : "Best Goal Of 97 - Clarence Seedorf - Real Madrid (1).mpg",
-  "size" : 1250764,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 20:55:05",
+  "uploadDate" : "2026-04-14 13:00:20",
   "additionalInfo" : ""
-}, {
-  "filename" : "ChatGPT Image Mar 2, 2026, 02_49_04 PM.png",
-  "size" : 3885180,
-  "type" : "application/octet-stream",
-  "uploadedBy" : "mou",
-  "uploadDate" : "2026-04-13 21:58:25",
-  "additionalInfo" : "aiphoto"
 } ]

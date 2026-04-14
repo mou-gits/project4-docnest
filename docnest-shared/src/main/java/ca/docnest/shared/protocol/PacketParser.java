@@ -46,6 +46,7 @@ public class PacketParser {
         if (files != null && files.isArray()) {
             for (var f : files) {
                 list.add(new FileMetadata(
+                        f.has("fileId") ? f.get("fileId").asText() : "",
                         f.has("filename") ? f.get("filename").asText() : "",
                         f.has("size") ? f.get("size").asLong() : 0,
                         f.has("type") ? f.get("type").asText() : "",

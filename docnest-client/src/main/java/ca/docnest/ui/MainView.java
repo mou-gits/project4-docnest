@@ -387,6 +387,19 @@ public class MainView {
         });
 
         task.setOnFailed(e -> {
+
+            Throwable ex = task.getException();
+
+            // If it's a controlled error (server responded with ERROR)
+            if (ex instanceof java.io.IOException &&
+                    ex.getMessage() != null &&
+                    ex.getMessage().startsWith("Delete failed")) {
+
+                showError(ex.getMessage());   // just show error
+                return;
+            }
+
+            // Otherwise it's a real connection issue
             showConnectionLostDialog("Connection lost during operation.\nPlease log in again.");
             resetToLoggedOutState("Connection lost. Please log in again.");
         });

@@ -1,20 +1,12 @@
 package ca.docnest.server;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-/**
- * Simple file storage for DocNest server.
- * Per-user directories, chunked uploads, full-file reads.
- */
+/* File storage for server*/
 public class FileStorage {
-
     // Root directory for all user data
     private static final Path ROOT = Paths.get("server-data");
 
@@ -31,13 +23,13 @@ public class FileStorage {
 
     // ---------- Public API ----------
 
-    public static void beginUpload(String userId, String filename, long size) throws IOException {
+    public static void beginUpload(String userId, String fileId, String filename, long size) throws IOException {
         Path userDir = userDir(userId);
         Files.createDirectories(userDir);
 
         String safeName = sanitizeFilename(filename);
 
-        Path tempFile = userDir.resolve(safeName + ".part");
+        Path tempFile = userDir.resolve(fileId + ".part");
 
         // Overwrite any existing temp file
         if (Files.exists(tempFile)) {
@@ -45,7 +37,7 @@ public class FileStorage {
         }
         Files.createFile(tempFile);
 
-        UploadContext ctx = new UploadContext(userId, safeName, size, tempFile);
+        UploadContext ctx = new UploadContext(userId, fileId, filename, size, tempFile);
         activeUploads.put(userId, ctx);
     }
 
@@ -83,25 +75,10 @@ public class FileStorage {
 
         Path userDir = userDir(userId);
         String safeName = sanitizeFilename(ctx.filename);
-        Path finalFile = userDir.resolve(safeName);
+        Path finalFile = userDir.resolve(ctx.fileId + ".bin");
 
         Files.move(ctx.tempFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
     }
-
-//    public static List<String> listFilesForUser(String userId) throws IOException {
-//        Path userDir = userDir(userId);
-//        if (!Files.exists(userDir)) {
-//            return List.of();
-//        }
-//
-//        try (Stream<Path> stream = Files.list(userDir)) {
-//            return stream
-//                    .filter(Files::isRegularFile)
-//                    .filter(p -> !p.getFileName().toString().endsWith(".part"))
-//                    .map(p -> p.getFileName().toString())
-//                    .collect(Collectors.toList());
-//        }
-//    }
 
     public static byte[] readFile(String userId, String filename) throws IOException {
         String safeName = sanitizeFilename(filename);
@@ -111,31 +88,6 @@ public class FileStorage {
         }
         return Files.readAllBytes(file);
     }
-
-//    public static byte[] readChunk(String userId, String filename, int offset, int length) throws IOException {
-//        Path file = userDir(userId).resolve(filename);
-//        if (!Files.exists(file)) {
-//            throw new IOException("File not found: " + filename);
-//        }
-//
-//        try (SeekableByteChannel channel = Files.newByteChannel(file, StandardOpenOption.READ)) {
-//            if (offset >= channel.size()) {
-//                return new byte[0];
-//            }
-//
-//            channel.position(offset);
-//            ByteBuffer buffer = ByteBuffer.allocate(length);
-//            int read = channel.read(buffer);
-//            if (read <= 0) {
-//                return new byte[0];
-//            }
-//
-//            byte[] data = new byte[read];
-//            buffer.flip();
-//            buffer.get(data);
-//            return data;
-//        }
-//    }
 
     public static boolean deleteFile(String userId, String filename) throws IOException {
         String safeName = sanitizeFilename(filename);
@@ -148,6 +100,30 @@ public class FileStorage {
     }
 
     // ---------- Helpers ----------
+
+    public static boolean deleteFileById(String userId, String fileId) throws IOException {
+        Path file = userDir(userId).resolve(fileId + ".bin");
+
+        Logger.info("DELETE path: " + file.toAbsolutePath());
+        Logger.info("Exists? " + Files.exists(file));
+
+        if (!Files.exists(file)) {
+            return false;
+        }
+
+        Files.delete(file);
+        return true;
+    }
+
+    public static byte[] readFileById(String userId, String fileId) throws IOException {
+        Path file = userDir(userId).resolve(fileId + ".bin");
+
+        if (!Files.exists(file)) {
+            throw new IOException("File not found: " + fileId);
+        }
+
+        return Files.readAllBytes(file);
+    }
 
     private static Path userDir(String userId) {
         return ROOT.resolve(sanitize(userId));
@@ -174,13 +150,20 @@ public class FileStorage {
 
     private static class UploadContext {
         final String userId;
+        final String fileId;
         final String filename;
         final long expectedSize;
         final Path tempFile;
         long bytesReceived = 0;
 
-        UploadContext(String userId, String filename, long expectedSize, Path tempFile) {
+        UploadContext(String userId,
+                      String fileId,
+                      String filename,
+                      long expectedSize,
+                      Path tempFile) {
+
             this.userId = userId;
+            this.fileId = fileId;
             this.filename = filename;
             this.expectedSize = expectedSize;
             this.tempFile = tempFile;
