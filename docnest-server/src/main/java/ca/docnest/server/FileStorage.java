@@ -35,7 +35,9 @@ public class FileStorage {
         Path userDir = userDir(userId);
         Files.createDirectories(userDir);
 
-        Path tempFile = userDir.resolve(filename + ".part");
+        String safeName = sanitizeFilename(filename);
+
+        Path tempFile = userDir.resolve(safeName + ".part");
 
         // Overwrite any existing temp file
         if (Files.exists(tempFile)) {
@@ -43,7 +45,7 @@ public class FileStorage {
         }
         Files.createFile(tempFile);
 
-        UploadContext ctx = new UploadContext(userId, filename, size, tempFile);
+        UploadContext ctx = new UploadContext(userId, safeName, size, tempFile);
         activeUploads.put(userId, ctx);
     }
 
@@ -66,64 +68,78 @@ public class FileStorage {
         if (ctx == null) {
             throw new IOException("No active upload for user: " + userId);
         }
+        if (ctx.bytesReceived != ctx.expectedSize) {
+
+            // Cleanup temp file
+            try {
+                Files.deleteIfExists(ctx.tempFile);
+            } catch (IOException ignored) {}
+
+            throw new IOException(
+                    "Upload incomplete: expected " + ctx.expectedSize +
+                            " bytes but received " + ctx.bytesReceived
+            );
+        }
 
         Path userDir = userDir(userId);
-        Path finalFile = userDir.resolve(ctx.filename);
+        String safeName = sanitizeFilename(ctx.filename);
+        Path finalFile = userDir.resolve(safeName);
 
-        // Move temp file to final location
         Files.move(ctx.tempFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
     }
 
-    public static List<String> listFilesForUser(String userId) throws IOException {
-        Path userDir = userDir(userId);
-        if (!Files.exists(userDir)) {
-            return List.of();
-        }
-
-        try (Stream<Path> stream = Files.list(userDir)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(p -> !p.getFileName().toString().endsWith(".part"))
-                    .map(p -> p.getFileName().toString())
-                    .collect(Collectors.toList());
-        }
-    }
+//    public static List<String> listFilesForUser(String userId) throws IOException {
+//        Path userDir = userDir(userId);
+//        if (!Files.exists(userDir)) {
+//            return List.of();
+//        }
+//
+//        try (Stream<Path> stream = Files.list(userDir)) {
+//            return stream
+//                    .filter(Files::isRegularFile)
+//                    .filter(p -> !p.getFileName().toString().endsWith(".part"))
+//                    .map(p -> p.getFileName().toString())
+//                    .collect(Collectors.toList());
+//        }
+//    }
 
     public static byte[] readFile(String userId, String filename) throws IOException {
-        Path file = userDir(userId).resolve(filename);
+        String safeName = sanitizeFilename(filename);
+        Path file = userDir(userId).resolve(safeName);
         if (!Files.exists(file)) {
             throw new IOException("File not found: " + filename);
         }
         return Files.readAllBytes(file);
     }
 
-    public static byte[] readChunk(String userId, String filename, int offset, int length) throws IOException {
-        Path file = userDir(userId).resolve(filename);
-        if (!Files.exists(file)) {
-            throw new IOException("File not found: " + filename);
-        }
-
-        try (SeekableByteChannel channel = Files.newByteChannel(file, StandardOpenOption.READ)) {
-            if (offset >= channel.size()) {
-                return new byte[0];
-            }
-
-            channel.position(offset);
-            ByteBuffer buffer = ByteBuffer.allocate(length);
-            int read = channel.read(buffer);
-            if (read <= 0) {
-                return new byte[0];
-            }
-
-            byte[] data = new byte[read];
-            buffer.flip();
-            buffer.get(data);
-            return data;
-        }
-    }
+//    public static byte[] readChunk(String userId, String filename, int offset, int length) throws IOException {
+//        Path file = userDir(userId).resolve(filename);
+//        if (!Files.exists(file)) {
+//            throw new IOException("File not found: " + filename);
+//        }
+//
+//        try (SeekableByteChannel channel = Files.newByteChannel(file, StandardOpenOption.READ)) {
+//            if (offset >= channel.size()) {
+//                return new byte[0];
+//            }
+//
+//            channel.position(offset);
+//            ByteBuffer buffer = ByteBuffer.allocate(length);
+//            int read = channel.read(buffer);
+//            if (read <= 0) {
+//                return new byte[0];
+//            }
+//
+//            byte[] data = new byte[read];
+//            buffer.flip();
+//            buffer.get(data);
+//            return data;
+//        }
+//    }
 
     public static boolean deleteFile(String userId, String filename) throws IOException {
-        Path file = userDir(userId).resolve(filename);
+        String safeName = sanitizeFilename(filename);
+        Path file = userDir(userId).resolve(safeName);
         if (!Files.exists(file)) {
             return false;
         }
@@ -140,6 +156,18 @@ public class FileStorage {
     private static String sanitize(String s) {
         // Very simple sanitization to avoid path traversal
         return s.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private static String sanitizeFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            throw new IllegalArgumentException("Invalid filename");
+        }
+
+        // Remove any path components (e.g., ../../ or folders)
+        filename = Paths.get(filename).getFileName().toString();
+
+        // Replace unsafe characters
+        return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     // ---------- Internal Types ----------

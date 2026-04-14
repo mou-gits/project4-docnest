@@ -64,18 +64,57 @@ public class Handlers {
         Logger.info("UPLOAD_CHUNK received (" + chunk.length + " bytes)");
     }
 
-    public static void handleUploadComplete(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {
-        FileStorage.finishUpload(session.getUserId());
-        transport.send(PacketBuilder.buildUploadResultPacket(true, "Upload complete"));
-        session.setState(SessionState.READY);
-        MetadataStore.addFile(
-                session.getUserId(),
-                session.getPendingUploadFilename(),
-                session.getPendingUploadSize(),
-                "application/octet-stream", // keep simple
-                session.getPendingUploadInfo()
-        );
-        Logger.info("UPLOAD_COMPLETE for user: " + session.getUserId());
+    public static void handleUploadComplete(
+            DataPacket packet,
+            ClientSession session,
+            PacketTransport transport
+    ) throws Exception {
+
+        String userId = session.getUserId();
+        String filename = session.getPendingUploadFilename();
+
+        try {
+            FileStorage.finishUpload(session.getUserId());
+            try {
+                // 2. Persist metadata ONLY after successful file write
+                MetadataStore.addFile(
+                        session.getUserId(),
+                        session.getPendingUploadFilename(),
+                        session.getPendingUploadSize(),
+                        "application/octet-stream",
+                        session.getPendingUploadInfo()
+                );
+            } catch(Exception metadataError) {
+                try {
+                    FileStorage.deleteFile(userId, filename);
+                    Logger.error("Rollback: deleted file due to metadata failure: " + filename);
+                } catch (Exception rollbackError) {
+                    Logger.error("Rollback FAILED for file: " + filename + " : " + rollbackError.getMessage());
+                }
+                throw metadataError; // rethrow to outer catch
+            }
+
+            // 3. Notify client
+            transport.send(PacketBuilder.buildUploadResultPacket(
+                    true,
+                    "Upload complete"
+            ));
+
+            Logger.info("UPLOAD_COMPLETE success for user: " + session.getUserId());
+        } catch (Exception e) {
+            Logger.error("UPLOAD_COMPLETE failed for user: "
+                    + session.getUserId() + " : " + e.getMessage());
+
+            // Send error packet to client
+            transport.send(PacketBuilder.buildErrorPacket(
+                    500,
+                    "Upload failed",
+                    e.getMessage()
+            ));
+        } finally {
+            // Return session to READY state
+            session.setState(SessionState.READY);
+        }
     }
 
     public static void handleDownloadInit(DataPacket packet, ClientSession session, PacketTransport transport) throws Exception {

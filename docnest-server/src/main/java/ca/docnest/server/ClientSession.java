@@ -117,11 +117,21 @@ public class ClientSession implements Runnable {
                 break;
 
             case TRANSFERRING:
-                if (type != PacketType.UPLOAD_CHUNK &&
-                        type != PacketType.UPLOAD_COMPLETE) {
-                    throw new IOException("Protocol violation: Only transfer commands allowed");
+                Logger.info("TRANSFERRING state accepted packet: " + type);
+                // Allow upload flow (client → server)
+                if (type == PacketType.UPLOAD_CHUNK ||
+                        type == PacketType.UPLOAD_COMPLETE) {
+                    break;
                 }
-                break;
+
+                // Allow download flow (server → client streaming)
+                if (type == PacketType.DOWNLOAD_CHUNK ||
+                        type == PacketType.DOWNLOAD_COMPLETE) {
+                    break;
+                }
+
+                throw new IOException("Protocol violation: Invalid command during transfer");
+
 
             case CLOSING:
                 throw new IOException("Session is closing");

@@ -7,6 +7,7 @@ out/
 jre/
 archive/
 dist/
+ex-docs/
 
 # User-specific IntelliJ files (never commit)
 .idea/workspace.xml
