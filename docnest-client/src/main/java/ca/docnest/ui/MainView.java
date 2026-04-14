@@ -68,6 +68,7 @@ public class MainView {
 
         // ---------- File List ----------
         fileList = new ListView<>();
+        fileList.setStyle("-fx-font-family: 'monospace';");
 
         // ---------- Buttons ----------
         btnUpload = new Button("Upload");
@@ -82,6 +83,7 @@ public class MainView {
         btnDownload.setDisable(true);
         btnDelete.setDisable(true);
         btnInfo.setDisable(true);
+        btnRefresh.setDisable(true);
 
         // Selection listener
         fileList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -160,7 +162,7 @@ public class MainView {
 
             btnLogout.setDisable(false);
             btnUpload.setDisable(false);
-
+            btnRefresh.setDisable(false);
             refreshFileList();
 
         } catch (Exception ex) {
@@ -190,8 +192,23 @@ public class MainView {
         btnDownload.setDisable(true);
         btnDelete.setDisable(true);
         btnInfo.setDisable(true);
-
+        btnRefresh.setDisable(true);
         fileList.getItems().clear();
+    }
+
+    private void resetToLoggedOutState(String message) {
+        try {
+            if (client != null) {
+                client.close();
+            }
+        } catch (Exception ignored) {}
+
+        new MainView(stage).show();
+
+        // Optional: show message
+        if (message != null) {
+            System.out.println(message);
+        }
     }
 
     // ---------- FILE LIST ----------
@@ -211,17 +228,19 @@ public class MainView {
             var names = currentFiles.stream()
                     .map(f -> {
 
-                        // ===== CONFIGURABLE WIDTHS =====
-                        int TOTAL_WIDTH = 90;
+                        // ===== CONFIG =====
+                        int TOTAL_WIDTH = 120;
 
-                        int NAME_WIDTH = 20;
-                        int SIZE_WIDTH = 15;
-                        int DATE_WIDTH = 10;
+                        int NAME_WIDTH = 40;
+                        int SIZE_WIDTH = 10;
+                        int DATE_WIDTH = 20;
 
-                        int SPACES_BETWEEN = 3; // 3 spaces between columns
-                        int INFO_WIDTH = TOTAL_WIDTH - (NAME_WIDTH + SIZE_WIDTH + DATE_WIDTH + SPACES_BETWEEN);
+                        int SPACES_BETWEEN = 3;
+                        String GAP = " ".repeat(SPACES_BETWEEN);
 
-                        // ===== NAME (handle filename + extension) =====
+                        int INFO_WIDTH = TOTAL_WIDTH - (NAME_WIDTH + SIZE_WIDTH + DATE_WIDTH + SPACES_BETWEEN * 3);
+
+                        // ===== NAME =====
                         String fullName = f.getFilename();
 
                         String namePart = fullName;
@@ -230,13 +249,12 @@ public class MainView {
                         int dotIndex = fullName.lastIndexOf('.');
                         if (dotIndex > 0 && dotIndex < fullName.length() - 1) {
                             namePart = fullName.substring(0, dotIndex);
-                            extPart = fullName.substring(dotIndex); // includes "."
+                            extPart = fullName.substring(dotIndex);
                         }
 
                         String displayName = namePart + extPart;
 
                         if (displayName.length() > NAME_WIDTH) {
-                            // shrink namePart only, preserve extension
                             int keepStart = 10;
                             int keepEnd = 5;
 
@@ -247,17 +265,19 @@ public class MainView {
                             }
 
                             displayName = namePart + extPart;
-
-                            // final safety trim if still too long
-                            if (displayName.length() > NAME_WIDTH) {
-                                displayName = displayName.substring(0, NAME_WIDTH);
-                            }
                         }
 
+                        // enforce exact width
+                        if (displayName.length() > NAME_WIDTH) {
+                            displayName = displayName.substring(0, NAME_WIDTH);
+                        }
                         displayName = String.format("%-" + NAME_WIDTH + "s", displayName);
 
                         // ===== SIZE =====
                         String sizeMB = String.format("%.2f MB", f.getSize() / (1024.0 * 1024.0));
+                        if (sizeMB.length() > SIZE_WIDTH) {
+                            sizeMB = sizeMB.substring(0, SIZE_WIDTH);
+                        }
                         sizeMB = String.format("%-" + SIZE_WIDTH + "s", sizeMB);
 
                         // ===== DATE =====
@@ -281,16 +301,15 @@ public class MainView {
                                         + "..."
                                         + info.substring(info.length() - keepEnd);
                             }
-
-                            if (info.length() > INFO_WIDTH) {
-                                info = info.substring(0, INFO_WIDTH);
-                            }
                         }
 
+                        if (info.length() > INFO_WIDTH) {
+                            info = info.substring(0, INFO_WIDTH);
+                        }
                         info = String.format("%-" + INFO_WIDTH + "s", info);
 
                         // ===== FINAL ROW =====
-                        return displayName + " " + sizeMB + " " + date + " " + info;
+                        return displayName + GAP + sizeMB + GAP + date + GAP + info;
 
                     })
                     .toList();
@@ -298,7 +317,9 @@ public class MainView {
             fileList.setItems(FXCollections.observableArrayList(names));
         });
 
-        task.setOnFailed(e -> showError("Failed to load files: " + task.getException().getMessage()));
+        task.setOnFailed(e -> {
+            resetToLoggedOutState("Connection lost. Please log in again.");
+        });
 
         new Thread(task).start();
     }
@@ -310,13 +331,27 @@ public class MainView {
         return currentFiles.get(index);
     }
 
+    private void showConnectionLostDialog(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Connection Lost");
+        alert.setHeaderText("Session Ended");
+        alert.setContentText(message != null
+                ? message
+                : "Connection lost. Please log in again.");
+
+        alert.showAndWait();
+    }
+
     private void handleUpload() {
         if (client == null) return;
 
-        new UploadDialogFX(client).showAndWait();
-        refreshFileList();
+        try {
+            new UploadDialogFX(stage, client).showAndWait();
+            refreshFileList();
+        } catch (Exception ex) {
+            resetToLoggedOutState("Connection lost. Please log in again.");
+        }
     }
-
     private void handleDownload() {
         var file = getSelectedFile();
         if (file == null) {
@@ -324,7 +359,11 @@ public class MainView {
             return;
         }
 
-        new DownloadDialogFX(client, file.getFilename()).showAndWait();
+        try {
+            new DownloadDialogFX(client, file.getFilename()).showAndWait();
+        } catch (Exception ex) {
+            resetToLoggedOutState("Connection lost. Please log in again.");
+        }
     }
 
     private void handleDelete() {
@@ -347,7 +386,10 @@ public class MainView {
             refreshFileList();
         });
 
-        task.setOnFailed(e -> showError("Delete failed: " + task.getException().getMessage()));
+        task.setOnFailed(e -> {
+            showConnectionLostDialog("Connection lost during operation.\nPlease log in again.");
+            resetToLoggedOutState("Connection lost. Please log in again.");
+        });
 
         new Thread(task).start();
     }

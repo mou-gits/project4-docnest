@@ -67,7 +67,11 @@ public class ClientSession implements Runnable {
                 PacketRouter.route(packet, this, transport);
             }
         } catch (Exception e) {
-            Logger.error("Session error: " + e.getMessage());
+            if (socket.isClosed()) {
+                Logger.info("Session closed by client.");
+            } else {
+                Logger.error("Session error: " + e.getMessage());
+            }
         } finally {
             Logger.info("Session closed for " + socket.getRemoteSocketAddress());
             close();
@@ -81,7 +85,11 @@ public class ClientSession implements Runnable {
     }
 
     public SessionState getState() { return state; }
-    public void setState(SessionState s) { state = s; }
+    public void setState(SessionState s) {
+        String user = (userId == null) ? "anonymous" : userId;
+        Logger.info("Session STATE CHANGE: " + state + " -> " + s + " (user=" + user + ")");
+        state = s;
+    }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
 
