@@ -14,20 +14,105 @@ import javafx.stage.Stage;
 
 import java.io.File;
 
+/**
+ * @class UploadDialogFX
+ * @brief Provides a JavaFX modal dialog for uploading files to the DocNest server.
+ *
+ * @details
+ * The {@code UploadDialogFX} class creates a graphical dialog window that allows
+ * users to select a local file, optionally enter additional descriptive
+ * information, and upload the file to the remote DocNest server.
+ *
+ * The dialog includes:
+ * <ul>
+ *   <li>A file browser for selecting a local file</li>
+ *   <li>A text field for entering additional information</li>
+ *   <li>A progress bar showing upload activity</li>
+ *   <li>Error feedback for failed uploads</li>
+ *   <li>Upload and Cancel controls</li>
+ * </ul>
+ *
+ * The upload operation is executed in a background JavaFX {@link Task} so the
+ * user interface remains responsive during file transfer.
+ *
+ * This dialog is modal and blocks interaction with the parent window until
+ * closed.
+ */
 public class UploadDialogFX {
 
+    /**
+     * @brief Network communication service used to contact the server.
+     *
+     * @details
+     * This client object is responsible for performing the actual upload
+     * request through the DocNest communication protocol.
+     */
     private final ClientNetwork client;
+
+    /**
+     * @brief Parent stage that owns this dialog.
+     *
+     * @details
+     * If provided, the upload dialog is attached to this owner window and
+     * behaves as its child modal dialog.
+     */
     private final Stage owner;
 
+    /**
+     * @brief The file currently selected by the user for upload.
+     *
+     * @details
+     * This field is assigned when the user chooses a file using the file
+     * browser dialog. It remains {@code null} until a valid selection is made.
+     */
     private File selectedFile;
 
+    /**
+     * @brief Constructs an upload dialog linked to a parent window and client.
+     *
+     * @details
+     * Initializes the dialog with the specified owner stage and active network
+     * client used for server communication.
+     *
+     * @param owner The parent {@link Stage} that owns this dialog. May be
+     *              {@code null}.
+     * @param client The active {@link ClientNetwork} instance used for uploads.
+     */
     public UploadDialogFX(Stage owner, ClientNetwork client) {
         this.owner = owner;
         this.client = client;
     }
 
+    /**
+     * @brief Creates a background task that uploads a file to the server.
+     *
+     * @details
+     * This helper method builds a JavaFX {@link Task} that performs the upload
+     * process in a separate thread. The selected file is read into memory as a
+     * byte array and sent to the server using the client network service.
+     *
+     * The task updates progress before and after the upload operation.
+     *
+     * @param file The local file to upload.
+     * @param info Additional descriptive information entered by the user.
+     *
+     * @return A JavaFX {@link Task} representing the upload operation.
+     */
     private Task<Void> createUploadTask(File file, String info) {
         return new Task<>() {
+
+            /**
+             * @brief Executes the upload operation in the background.
+             *
+             * @details
+             * Reads the selected file from disk, sends it to the server using
+             * the client upload method, and updates progress state.
+             *
+             * @return {@code null} when the upload completes successfully.
+             *
+             * @throws Exception Thrown if file reading fails or if the upload
+             *                   process encounters communication errors.
+             */
             @Override
             protected Void call() throws Exception {
                 updateProgress(-1, 1);
@@ -44,6 +129,33 @@ public class UploadDialogFX {
         };
     }
 
+    /**
+     * @brief Displays the upload dialog and waits until it is closed.
+     *
+     * @details
+     * This method builds the full JavaFX user interface, wires all event
+     * handlers, and displays the modal upload dialog.
+     *
+     * Main workflow:
+     * <ol>
+     *   <li>Create dialog window and controls</li>
+     *   <li>Allow user to browse for a file</li>
+     *   <li>Accept optional additional information</li>
+     *   <li>Start background upload task when Upload is clicked</li>
+     *   <li>Update progress bar during upload</li>
+     *   <li>Close dialog on success</li>
+     *   <li>Show error message on failure</li>
+     * </ol>
+     *
+     * Cancel behavior:
+     * <ul>
+     *   <li>Attempts to close the client connection</li>
+     *   <li>Closes the dialog window</li>
+     * </ul>
+     *
+     * The method blocks until the user closes the dialog because it uses
+     * {@code showAndWait()}.
+     */
     public void showAndWait() {
         Stage stage = new Stage();
         stage.setTitle("Upload File");
