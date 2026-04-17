@@ -1,5 +1,6 @@
 package ca.docnest.ui;
 
+import ca.docnest.client.config.Config;
 import ca.docnest.client.network.ClientNetwork;
 import ca.docnest.shared.model.FileMetadata;
 import javafx.collections.FXCollections;
@@ -21,9 +22,6 @@ public class MainView {
 
     private ClientNetwork client;
     private String currentUser;
-
-    private TextField txtHost;
-    private TextField txtPort;
 
     private Button btnLogin;
     private Button btnLogout;
@@ -47,24 +45,26 @@ public class MainView {
         root.setPadding(new Insets(20));
 
         // ---------- Top UI ----------
-        txtHost = new TextField("localhost");
-        txtPort = new TextField("9090");
+//        txtHost = new TextField("localhost");
+//        txtPort = new TextField("9090");
 
         btnLogin = new Button("Login");
         btnLogout = new Button("Logout");
 
         lblStatus = new Label("Logged in as:");
 
-        HBox connectionBar = new HBox(10,
-                new Label("Host:"), txtHost,
-                new Label("Port:"), txtPort,
-                btnLogin,
-                btnLogout
-        );
-        connectionBar.setAlignment(Pos.CENTER_LEFT);
+        HBox leftBox = new HBox(lblStatus);
+        leftBox.setAlignment(Pos.CENTER_LEFT);
 
-        VBox topBox = new VBox(10, lblStatus, connectionBar);
-        root.setTop(topBox);
+        HBox rightBox = new HBox(10, btnLogin, btnLogout);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+
+        BorderPane topBar = new BorderPane();
+        topBar.setLeft(leftBox);
+        topBar.setRight(rightBox);
+        topBar.setPadding(new Insets(10)); // optional, looks nicer
+
+        root.setTop(topBar);
 
         // ---------- File List ----------
         fileList = new ListView<>();
@@ -121,10 +121,7 @@ public class MainView {
         try {
             // 1. Create client + connect
             client = new ClientNetwork();
-            client.connect(
-                    txtHost.getText(),
-                    Integer.parseInt(txtPort.getText())
-            );
+            client.connect(Config.HOST, Config.PORT);
 
             // 2. Show login dialog
             LoginDialogFX dialog = new LoginDialogFX(stage);
@@ -156,8 +153,6 @@ public class MainView {
             lblStatus.setText("Logged in as: " + username);
             lblStatus.setStyle("-fx-text-fill: green;");
 
-            txtHost.setDisable(true);
-            txtPort.setDisable(true);
             btnLogin.setDisable(true);
 
             btnLogout.setDisable(false);
@@ -183,8 +178,6 @@ public class MainView {
 
         lblStatus.setText("Logged in as:");
 
-        txtHost.setDisable(false);
-        txtPort.setDisable(false);
         btnLogin.setDisable(false);
 
         btnLogout.setDisable(true);
