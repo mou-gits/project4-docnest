@@ -9,6 +9,8 @@ archive/
 dist/
 ex-docs/
 installers/
+doc/html/
+server-data/
 
 # User-specific IntelliJ files (never commit)
 .idea/workspace.xml

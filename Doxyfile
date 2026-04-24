@@ -1,0 +1,115 @@
+# ---------------------------------------------------------
+# Doxyfile for Project4-DocNest (Multi‑Module)
+# ---------------------------------------------------------
+
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = "Project4-DocNest"
+PROJECT_NUMBER         =
+PROJECT_BRIEF          =
+PROJECT_LOGO           =
+PROJECT_ICON           =
+
+# ---------------------------------------------------------
+# Output configuration
+# ---------------------------------------------------------
+
+OUTPUT_DIRECTORY       = "doc"
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = NO
+OUTPUT_LANGUAGE        = English
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+FULL_PATH_NAMES        = YES
+SHORT_NAMES            = NO
+
+# ---------------------------------------------------------
+# Input configuration (ALL MODULES)
+# ---------------------------------------------------------
+
+INPUT = \
+  "docnest-client/src/main/java" \
+  "docnest-client/src/test/java" \
+  "docnest-server/src/main/java" \
+  "docnest-server/src/test/java" \
+  "docnest-shared/src/main/java" \
+  "docnest-shared/src/test/java"
+
+RECURSIVE = YES
+
+FILE_PATTERNS = \
+  *.java \
+  *.md
+
+EXCLUDE                =
+EXCLUDE_PATTERNS       = \
+  */target/* \
+  */dist-client/* \
+  */dist-server/*
+
+# ---------------------------------------------------------
+# Markdown support
+# ---------------------------------------------------------
+
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 6
+MARKDOWN_ID_STYLE      = DOXYGEN
+
+# ---------------------------------------------------------
+# Extraction options
+# ---------------------------------------------------------
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+EXTRACT_LOCAL_CLASSES  = YES
+RESOLVE_UNNAMED_PARAMS = YES
+
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_UNDOC_NAMESPACES  = YES
+
+CASE_SENSE_NAMES       = SYSTEM
+
+# ---------------------------------------------------------
+# Build options
+# ---------------------------------------------------------
+
+TAB_SIZE               = 4
+OPTIMIZE_OUTPUT_JAVA   = YES
+NUM_PROC_THREADS       = 1
+TIMESTAMP              = NO
+
+# ---------------------------------------------------------
+# HTML output
+# ---------------------------------------------------------
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+
+# ---------------------------------------------------------
+# Graphviz / Dot settings (FULLY ENABLED)
+# ---------------------------------------------------------
+
+HAVE_DOT               = YES
+DOT_NUM_THREADS        = 4
+DOT_PATH               = ""
+
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+
+CLASS_DIAGRAMS         = YES
+COLLABORATION_GRAPH    = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+
+UML_LOOK               = YES
+UML_LIMIT_NUM_FIELDS   = 50
+
+DOTFILE_DIRS           =
+MSCFILE_DIRS           =
+
+# ---------------------------------------------------------
+# LaTeX output (disabled)
+# ---------------------------------------------------------
+
+GENERATE_LATEX         = NO
